@@ -108,9 +108,57 @@ router.post("/ecosystem-click", authWallet, (req, res) => {
 /* ---------------- DEBUG ALL XP DATA ---------------- */
 router.get("/debug/all", (req, res) => {
   try {
+    const wallet = req.query.wallet?.toLowerCase();
+    const type = req.query.type?.toLowerCase(); 
+    // type options: playerxp, xpactions, ecosystemclicks
+
+    const playerXp = readPlayerXp();
+    const xpActions = readXpActions();
+
+    const filterByWallet = (data) => {
+      if (!wallet) return data;
+
+      return Object.fromEntries(
+        Object.entries(data).filter(([address, value]) => {
+          return (
+            address.toLowerCase() === wallet ||
+            value?.wallet?.toLowerCase?.() === wallet
+          );
+        })
+      );
+    };
+
+    const filteredPlayerXp = filterByWallet(playerXp);
+    const filteredXpActions = filterByWallet(xpActions);
+
+    if (type === "playerxp") {
+      return res.json({
+        playerXp: filteredPlayerXp,
+      });
+    }
+
+    if (type === "xpactions") {
+      return res.json({
+        xpActions: filteredXpActions,
+      });
+    }
+
+    if (type === "ecosystemclicks") {
+      const ecosystemClicks = Object.fromEntries(
+        Object.entries(filteredXpActions).map(([address, data]) => [
+          address,
+          data.ecosystemClicks || {},
+        ])
+      );
+
+      return res.json({
+        ecosystemClicks,
+      });
+    }
+
     return res.json({
-      playerXp: readPlayerXp(),
-      xpActions: readXpActions(),
+      playerXp: filteredPlayerXp,
+      xpActions: filteredXpActions,
     });
   } catch (err) {
     console.error("GET /xp/debug/all error:", err);
