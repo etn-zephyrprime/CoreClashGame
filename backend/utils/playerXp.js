@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
-import { RPC_URL, BACKEND_PRIVATE_KEY, CORE_TOKEN_ADDRESS } from "../config.js";
+import { RPC_URL, BACKEND_PRIVATE_KEY, CORE_TOKEN_ADDRESS, EVG_CONTRACT_ADDRESS } from "../config.js";
 
 const DATA_DIR = "/backend/data";
 const XP_FILE = path.join(DATA_DIR, "playerXp.json");
@@ -14,6 +14,11 @@ const ETN_REWARD_AMOUNT = "1";
 
 const ERC20ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
+];
+
+const EVGABI = [
+  "function safeTransferFrom(address from, address to, uint256 tokenId)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
 ];
 
 export const XP_REWARDS = {
@@ -66,6 +71,7 @@ export function awardWeeklyLeaderboardBonuses(weekKey, top3 = []) {
         weeklyLeaderboardBonus: { attack: 0, defense: 0, vitality: 0, agility: 0 },
         weeklyLeaderboardRewards: [],
         rewardedLevels: [],
+        evgRewardedLevels: [],
         etnLevel1Rewarded: false,
         updatedAt: new Date().toISOString(),
       };
@@ -162,6 +168,85 @@ async function sendEtnReward(toWallet) {
   };
 }
 
+// ---------- EVG REWARDS ------------- //
+const NFT_REWARD_LEVELS = [4, 6, 8, 10];
+
+const NFT_TOKEN_RANGES = {
+  4: { start: 1, end: 250 },
+  6: { start: 251, end: 500 },
+  8: { start: 501, end: 750 },
+  10: { start: 651, end: 1000 },
+};
+
+function getNftRewardableLevelsCrossed(oldLevel, newLevel, evgRewardedLevels = []) {
+  const alreadyRewarded = new Set(evgRewardedLevels);
+  const crossed = [];
+
+  for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
+    if (NFT_REWARD_LEVELS.includes(lvl) && !alreadyRewarded.has(lvl)) {
+      crossed.push(lvl);
+    }
+  }
+
+  return crossed;
+}
+
+// ------- BACKFILL ---------- //
+export async function backfillEvgRewardsForExistingPlayers() {
+  const all = readPlayerXp();
+  const results = [];
+
+  for (const [walletLc, player] of Object.entries(all)) {
+    const playerLevel = Number(player.level || 0);
+
+    if (!Array.isArray(player.evgRewardedLevels)) {
+      player.evgRewardedLevels = [];
+    }
+
+    const missingLevels = NFT_REWARD_LEVELS.filter((lvl) => {
+      return playerLevel >= lvl && !player.evgRewardedLevels.includes(lvl);
+    });
+
+    for (const lvl of missingLevels) {
+      try {
+        const reward = await sendNftReward(walletLc, lvl);
+
+        player.evgRewardedLevels.push(lvl);
+        player.updatedAt = new Date().toISOString();
+        writePlayerXp(all);
+
+        results.push({
+          wallet: walletLc,
+          level: lvl,
+          success: true,
+          tokenId: reward.tokenId,
+          txHash: reward.txHash,
+        });
+
+        console.log(
+          `Backfilled EVG reward: level ${lvl}, wallet ${walletLc}, tokenId ${reward.tokenId}, tx ${reward.txHash}`
+        );
+      } catch (err) {
+        results.push({
+          wallet: walletLc,
+          level: lvl,
+          success: false,
+          error: err.message || String(err),
+        });
+
+        console.error(
+          `Failed to backfill EVG reward for ${walletLc} level ${lvl}:`,
+          err.message || err
+        );
+      }
+    }
+  }
+
+  writePlayerXp(all);
+
+  return results;
+}
+
 ///* ---------------- XP & Leveling Logic ---------------- */
 export async function adjustXp(wallet, amount) {
   const walletLc = String(wallet).toLowerCase();
@@ -169,20 +254,29 @@ export async function adjustXp(wallet, amount) {
 
   if (!all[walletLc]) {
     const levelData = getLevelData(0);
-    all[walletLc] = {
-      wallet: walletLc,
-      xp: 0,
-      level: levelData.level,
-      statsBonus: levelData.bonuses,
-      updatedAt: new Date().toISOString(),
-    };
+all[walletLc] = {
+  wallet: walletLc,
+  xp: 0,
+  level: levelData.level,
+  statsBonus: levelData.bonuses,
+  rewardedLevels: [],
+  evgRewardedLevels: [],
+  etnLevel1Rewarded: false,
+  updatedAt: new Date().toISOString(),
+};
   }
 
   const oldLevel = all[walletLc].level || 0;
+
   const rewardedLevels = Array.isArray(all[walletLc].rewardedLevels)
     ? all[walletLc].rewardedLevels
     : [];
-const etnLevel1Rewarded = Boolean(all[walletLc].etnLevel1Rewarded);
+
+  const evgRewardedLevels = Array.isArray(all[walletLc].evgRewardedLevels)
+  ? all[walletLc].evgRewardedLevels
+  : [];
+
+  const etnLevel1Rewarded = Boolean(all[walletLc].etnLevel1Rewarded);
 
   all[walletLc].xp = Math.max(0, all[walletLc].xp + amount);
 
@@ -192,7 +286,8 @@ const etnLevel1Rewarded = Boolean(all[walletLc].etnLevel1Rewarded);
   all[walletLc].level = newLevel;
   all[walletLc].statsBonus = levelData.bonuses;
   all[walletLc].rewardedLevels = rewardedLevels;
-all[walletLc].etnLevel1Rewarded = etnLevel1Rewarded;
+  all[walletLc].evgRewardedLevels = evgRewardedLevels;
+  all[walletLc].etnLevel1Rewarded = etnLevel1Rewarded;
   all[walletLc].updatedAt = new Date().toISOString();
 
   writePlayerXp(all);
@@ -203,11 +298,37 @@ all[walletLc].etnLevel1Rewarded = etnLevel1Rewarded;
     rewardedLevels
   );
 
+const crossedNftRewardLevels = getNftRewardableLevelsCrossed(
+  oldLevel,
+  newLevel,
+  evgRewardedLevels
+);
+
+for (const lvl of crossedNftRewardLevels) {
+  try {
+    const reward = await sendNftReward(walletLc, lvl);
+    rewardResults.push(reward);
+
+    all[walletLc].evgRewardedLevels.push(lvl);
+    all[walletLc].updatedAt = new Date().toISOString();
+    writePlayerXp(all);
+
+    console.log(
+      `NFT reward sent: level ${lvl}, wallet ${walletLc}, tokenId ${reward.tokenId}, tx ${reward.txHash}`
+    );
+  } catch (err) {
+    console.error(
+      `Failed to send NFT reward for wallet ${walletLc} at level ${lvl}:`,
+      err.message || err
+    );
+  }
+}
+
   const shouldSendEtnLevel1 =
     !etnLevel1Rewarded && crossedSpecificLevel(oldLevel, newLevel, ETN_REWARD_LEVEL);
-    
-  const rewardResults = [];
 
+  const rewardResults = [];
+    
   for (const lvl of crossedRewardLevels) {
     try {
       const reward = await sendCoreReward(walletLc, lvl);
@@ -339,6 +460,7 @@ export function ensurePlayer(wallet) {
       level: levelData.level,
       statsBonus: levelData.bonuses,
       rewardedLevels: [],
+      evgRewardedLevels: [],
       etnLevel1Rewarded: false,
       updatedAt: new Date().toISOString(),
     };
@@ -401,6 +523,57 @@ export async function awardEcosystemClickXp(wallet, linkKey) {
 
   const player = await awardXp(walletLc, XP_REWARDS.ECOSYSTEM_CLICK);
   return { awarded: true, amount: XP_REWARDS.ECOSYSTEM_CLICK, player };
+}
+
+// ----------- EVG REWARDS ------------- //
+async function findAvailableNftTokenId(level, adminAddress, nftContract) {
+  const range = NFT_TOKEN_RANGES[level];
+  if (!range) return null;
+
+  for (let tokenId = range.start; tokenId <= range.end; tokenId++) {
+    try {
+      const owner = await nftContract.ownerOf(tokenId);
+
+      if (owner.toLowerCase() === adminAddress.toLowerCase()) {
+        return tokenId;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function sendNftReward(toWallet, level) {
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
+  const evgContract = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVGABI, adminWallet);
+
+  const tokenId = await findAvailableNftTokenId(
+    level,
+    adminWallet.address,
+    evgContract
+  );
+
+  if (!tokenId) {
+    throw new Error(`No available NFT left for level ${level}`);
+  }
+
+  const tx = await evgContract.safeTransferFrom(
+    adminWallet.address,
+    toWallet,
+    tokenId
+  );
+
+  await tx.wait(1);
+
+  return {
+    token: "XP_NFT",
+    level,
+    tokenId,
+    txHash: tx.hash,
+  };
 }
 
 console.log("[XP] DATA_DIR:", DATA_DIR);
