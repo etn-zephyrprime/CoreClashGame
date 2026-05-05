@@ -7,6 +7,7 @@ import {
   XP_LEVELS,
   readPlayerXp,
   readXpActions,
+  backfillEvgRewardsForExistingPlayers,
 } from "../utils/playerXp.js";
 
 const router = express.Router();
@@ -167,5 +168,22 @@ router.get("/debug/all", (req, res) => {
     });
   }
 });
+
+router.post("/debug/backfill-evg-rewards", async (req, res) => {
+  try {
+    const results = await backfillEvgRewardsForExistingPlayers();
+
+    return res.json({
+      success: true,
+      results,
+    });
+  } catch (err) {
+    console.error("Backfill EVG rewards error:", err);
+    return res.status(500).json({
+      error: err.message || "Failed to backfill EVG rewards",
+    });
+  }
+});
+
 
 export default router;

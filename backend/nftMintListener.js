@@ -12,6 +12,7 @@ const POLL_INTERVAL_MS = 60000;
 const MAX_BLOCK_RANGE = 500;
 const REORG_BUFFER_BLOCKS = 2;
 
+const processingMintLogs = new Set();
 const announcedMintLogs = new Set();
 
 function mintLogKey(log) {
@@ -90,9 +91,11 @@ if (!Number.isFinite(fromBlock) || !Number.isFinite(toBlock)) {
 for (const log of logs) {
   const key = mintLogKey(log);
 
-  if (announcedMintLogs.has(key)) {
+  if (announcedMintLogs.has(key) || processingMintLogs.has(key)) {
     continue;
   }
+
+  processingMintLogs.add(key);
 
   try {
     const parsed = iface.parseLog(log);
@@ -101,12 +104,19 @@ for (const log of logs) {
     const tokenId = String(parsed.args.tokenId);
     const contractAddress = String(log.address).toLowerCase();
 
-    if (from !== ethers.ZeroAddress.toLowerCase()) continue;
+    if (from !== ethers.ZeroAddress.toLowerCase()) {
+      processingMintLogs.delete(key);
+      continue;
+    }
 
     const collection = NFT_COLLECTION_MAP[contractAddress];
-    if (!collection) continue;
+    if (!collection) {
+      processingMintLogs.delete(key);
+      continue;
+    }
 
     let minter = to;
+
     try {
       const tx = await provider.getTransaction(log.transactionHash);
       if (tx?.from) {
@@ -120,12 +130,14 @@ for (const log of logs) {
     }
 
     let tokenURI = null;
+
     try {
       const nft = new ethers.Contract(
         contractAddress,
         ERC721_METADATA_ABI,
         provider
       );
+
       tokenURI = await nft.tokenURI(tokenId);
     } catch (err) {
       console.warn(
@@ -134,18 +146,37 @@ for (const log of logs) {
       );
     }
 
-    await generateMapping(collection.key || collection.name);
+    let image = null;
 
-    const image = await waitForNftImage({
-      contractAddress,
-      tokenId,
-      tokenURI,
-      attempts: 6,
-      delayMs: 5000,
-    });
+    for (let attempt = 1; attempt <= 6; attempt++) {
+      await generateMapping(collection.key || collection.name);
 
-    if (!image) {
-      console.warn(`[NFT MINT] Image still missing for ${collection.name} #${tokenId}`);
+      image = await waitForNftImage({
+        contractAddress,
+        tokenId,
+        tokenURI,
+        attempts: 1,
+        delayMs: 0,
+      });
+
+      if (image?.absolutePath) {
+        break;
+      }
+
+      console.warn(
+        `[NFT MINT] Image not cached yet for ${collection.name} #${tokenId}, attempt ${attempt}/6`
+      );
+
+      await delay(5000);
+    }
+
+    if (!image?.absolutePath) {
+      console.warn(
+        `[NFT MINT] Skipping notification until image is cached for ${collection.name} #${tokenId}`
+      );
+
+      processingMintLogs.delete(key);
+      continue;
     }
 
     await sendTelegramNftMint({
@@ -154,12 +185,13 @@ for (const log of logs) {
       tokenId,
       buyer: minter,
       txHash: log.transactionHash,
-      tokenURI, // important: pass this through
+      tokenURI,
     });
 
     announcedMintLogs.add(key);
-
+    processingMintLogs.delete(key);
   } catch (err) {
+    processingMintLogs.delete(key);
     console.error("[NFT MINT] Failed to process log:", err);
   }
 }
