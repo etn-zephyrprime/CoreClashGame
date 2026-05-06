@@ -15,6 +15,13 @@ const addressToCollection = {
   // add more if needed
 };
 
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  SCIONS: "png",
+  VQLE: "png",
+  VKIN: "png",
+};
+
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
 
 /* ---------------- Stable Image Component ---------------- */

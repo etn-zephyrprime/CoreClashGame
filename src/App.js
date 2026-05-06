@@ -3080,6 +3080,8 @@ const imageFile = mapped
                     ? mapping[collectionKey]?.[String(nftOption.tokenId)]
                     : null;
 
+const format = COLLECTION_IMAGE_FORMATS[collectionKey] || "png";
+
 const imageFile = mapped
   ? mapped.image_file ||
     mapped.token_uri?.replace(/\.json$/i, `.${format}`) ||
