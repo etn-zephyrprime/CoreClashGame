@@ -14,6 +14,13 @@ const addressToCollection = {
   "0x5c81a5609eaeef7962f1d089d6343f9790387901": "EVG",
 };
 
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  SCIONS: "png",
+  VQLE: "png",
+  VKIN: "png",
+};
+
 export const renderTokenImages = (input = [], mapping = {}) => {
   console.log("[renderTokenImages] Raw input:", JSON.stringify(input, null, 2));
   console.log("[renderTokenImages] Live mapping loaded:", mapping);
