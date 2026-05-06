@@ -10,6 +10,7 @@ export default function EcosystemBlock({
   VerdantKinBanner,
   VerdantQueenBanner,
   AetherScionsBanner,
+  EvgBanner,
 }) {
   const ecosystemItems = [
     {
@@ -63,6 +64,18 @@ export default function EcosystemBlock({
   imageScale: 0.92,
   imageTranslateY: 0,
   url: "https://app.electroswap.io/nfts/collection/0xAc620b1A3dE23F4EB0A69663613baBf73F6C535D",
+},
+{
+  type: "banner",
+  linkKey: "evg",
+  alt: "Guardians of Erevos",
+  imageSrc: EvgBanner,
+  objectFit: "contain",
+  desktopMaxWidth: 320,
+  desktopHeight: 78,
+  imageScale: 0.92,
+  imageTranslateY: 0,
+  url: "https://panth.art/collections/0x5C81a5609EaeEF7962F1D089D6343F9790387901",
 },
   ];
 

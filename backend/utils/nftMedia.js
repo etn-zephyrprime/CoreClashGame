@@ -8,12 +8,14 @@ import {
   VKIN_CONTRACT_ADDRESS,
   VQLE_CONTRACT_ADDRESS,
   SCIONS_CONTRACT_ADDRESS,
+  EVG_CONTRACT_ADDRESS,
 } from "../config.js";
 
 const addressToCollection = {
   [VKIN_CONTRACT_ADDRESS.toLowerCase()]: "VKIN",
   [VQLE_CONTRACT_ADDRESS.toLowerCase()]: "VQLE",
   [SCIONS_CONTRACT_ADDRESS.toLowerCase()]: "SCIONS",
+  [EVG_CONTRACT_ADDRESS.toLowerCase()]: "EVG",
 };
 
 export function resolveCollectionFromAddress(rawAddr) {
@@ -21,8 +23,10 @@ export function resolveCollectionFromAddress(rawAddr) {
 
   return (
     addressToCollection[addr] ||
-    (addr.includes("8cfbb04c")
+      (addr.includes("8cfbb04c")
       ? "VQLE"
+      : addr.includes("5C81a560")   // 👈 add this
+      ? "EVG"
       : addr.includes("ac620b1a3de23f4eb0a69663613babf73f6c535d")
       ? "SCIONS"
       : "VKIN")
@@ -38,26 +42,28 @@ export function resolveNftImageFile({
   const mapping = loadMapping();
   const mappedEntry = mapping?.[collection]?.[String(tokenId)];
 
-  let imageFile = `${tokenId}.png`;
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
 
-  if (collection === "SCIONS") {
-    if (tokenURI) {
-      imageFile = String(tokenURI).replace(/\.json$/i, ".png").toLowerCase();
-    } else if (mappedEntry?.image_file) {
-      imageFile = mappedEntry.image_file;
-    } else if (mappedEntry?.token_uri) {
-      imageFile = String(mappedEntry.token_uri).replace(/\.json$/i, ".png").toLowerCase();
-    }
-  } else {
-    if (mappedEntry?.image_file) {
-      imageFile = mappedEntry.image_file;
-    } else if (mappedEntry?.token_uri) {
-      imageFile = String(mappedEntry.token_uri).replace(/\.json$/i, ".png").toLowerCase();
-    } else if (tokenURI) {
-      imageFile = String(tokenURI).replace(/\.json$/i, ".png").toLowerCase();
-    }
-  }
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
+
+if (mappedEntry?.image_file) {
+  imageFile = mappedEntry.image_file;
+} else if (mappedEntry?.token_uri) {
+  imageFile = String(mappedEntry.token_uri)
+    .replace(/\.json$/i, `.${format}`)
+    .toLowerCase();
+} else if (tokenURI) {
+  imageFile = String(tokenURI)
+    .replace(/\.json$/i, `.${format}`)
+    .toLowerCase();
+}
   return {
     collection,
     imageFile,

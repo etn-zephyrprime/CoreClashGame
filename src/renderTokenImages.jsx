@@ -10,6 +10,8 @@ const addressToCollection = {
   "0x8cFBB04c54d35e2e8471Ad9040D40D73C08136f0": "VQLE",
   "0xac620b1a3de23f4eb0a69663613babf73f6c535d": "SCIONS",
   "0xAc620b1A3dE23F4EB0A69663613baBf73F6C535D": "SCIONS",
+  "0x5C81a5609EaeEF7962F1D089D6343F9790387901": "EVG",
+  "0x5c81a5609eaeef7962f1d089d6343f9790387901": "EVG",
 };
 
 export const renderTokenImages = (input = [], mapping = {}) => {
@@ -23,7 +25,9 @@ export const renderTokenImages = (input = [], mapping = {}) => {
       const rawCollection = token.collection || token.mappingKey || "VKIN";
       const collection = String(rawCollection).toUpperCase();
       const tokenId = String(token.tokenId ?? "");
-      const imageFile = token.imageFile || `${tokenId}.png`;
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+const imageFile = token.imageFile || `${tokenId}.${format}`;
 
       return {
         collection,
@@ -66,8 +70,7 @@ export const renderTokenImages = (input = [], mapping = {}) => {
 
       const mappingKey = collection;
       const tokenId = String(id);
-      let imageFile = `${tokenId}.png`;
-
+      const imageFile = tokenId.imageFile || `${tokenId}.${format}`;
       const mapped = mapping?.[mappingKey]?.[tokenId];
 
       console.log(`Slot ${idx} final:`, {
@@ -82,28 +85,32 @@ export const renderTokenImages = (input = [], mapping = {}) => {
 
       // Priority 1: explicit tokenURI from backend
 // Priority 1: live mapping.json
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
 if (mapped) {
   imageFile =
     mapped?.image_file ??
-    mapped?.token_uri?.replace(/\.json$/i, ".png") ??
-    `${tokenId}.png`;
+    mapped?.token_uri?.replace(/\.json$/i, `.${format}`) ??
+    `${tokenId}.${format}`;
 
   console.log(`Slot ${idx}: live mapping → ${imageFile}`);
 }
 // Priority 2: explicit tokenURI from backend
 else if (tokenURIs[idx]) {
-  imageFile = tokenURIs[idx].replace(/\.json$/i, ".png");
+  imageFile = tokenURIs[idx].replace(/\.json$/i, `.${format}`);
 
   console.log(
     `Slot ${idx}: backend tokenURI → ${imageFile} (collection: ${collection}, mappingKey: ${mappingKey})`
   );
 }
       // Priority 2: live mapping.json from backend
-      else if (mapped) {
-        imageFile =
-          mapped?.image_file ??
-          mapped?.token_uri?.replace(/\.json$/i, ".png") ??
-          `${tokenId}.png`;
+else if (mapped) {
+  const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+  imageFile =
+    mapped?.image_file ??
+    mapped?.token_uri?.replace(/\.json$/i, `.${format}`) ??
+    `${tokenId}.${format}`;
 
         console.log(`Slot ${idx}: live mapping → ${imageFile}`);
       } else {
@@ -132,13 +139,16 @@ else if (tokenURIs[idx]) {
 
         let finalImageFile = imageFile;
 
-        const mapped = mapping?.[mappingKey]?.[String(tokenId)];
-        if (mapped) {
-          finalImageFile =
-            mapped?.image_file ??
-            mapped?.token_uri?.replace(/\.json$/i, ".png") ??
-            `${tokenId}.png`;
-        }
+const mapped = mapping?.[mappingKey]?.[String(tokenId)];
+
+if (mapped) {
+  const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+  finalImageFile =
+    mapped?.image_file ??
+    mapped?.token_uri?.replace(/\.json$/i, `.${format}`) ??
+    `${tokenId}.${format}`;
+}
 
         const src = `${BACKEND_URL}/images/${collection}/${finalImageFile}`;
 

@@ -79,6 +79,7 @@ router.post("/ecosystem-click", authWallet, (req, res) => {
       "vkin",
       "vqle",
       "scions",
+      "evg",
       "electroswap",
       "website",
       "sponsoredad1",

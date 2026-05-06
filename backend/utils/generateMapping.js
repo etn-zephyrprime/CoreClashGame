@@ -9,6 +9,7 @@ import {
   VKIN_CONTRACT_ADDRESS,
   SCIONS_CONTRACT_ADDRESS,
   VQLE_IPFS_BASE,
+  EVG_IPFS_BASE,
   RPC_URL,
 } from "../config.js";
 
@@ -30,11 +31,14 @@ const VQLE_JSON_DIR = path.join(METADATA_JSON_DIR, "VQLE");
 const VQLE_IMAGE_DIR = path.join(METADATA_IMAGES_DIR, "VQLE");
 const SCIONS_JSON_DIR = path.join(METADATA_JSON_DIR, "SCIONS");
 const SCIONS_IMAGE_DIR = path.join(METADATA_IMAGES_DIR, "SCIONS");
+const EVG_JSON_DIR = path.join(METADATA_JSON_DIR, "EVG");
+const EVG_IMAGE_DIR = path.join(METADATA_IMAGES_DIR, "EVG");
 
 /* ---------------- Fixed Supplies ---------------- */
 const VKIN_MAX_SUPPLY = 474;
 const VQLE_MAX_SUPPLY = 30;
 const SCIONS_MAX_SUPPLY = 198;
+const EVG_MAX_SUPPLY = 1000;
 
 const VKIN_ABI = ["function tokenURI(uint256 tokenId) view returns (string)"];
 const SCIONS_ABI = ["function tokenURI(uint256 tokenId) view returns (string)"];
@@ -116,7 +120,17 @@ async function generateVKIN(rows, provider, existingMap) {
 
   for (const tokenId of missingIds) {
     let jsonFile = null;
-    let imageFile = `${tokenId}.png`;
+
+    const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
+
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     try {
       const tokenURI = await contract.tokenURI(tokenId);
@@ -197,7 +211,7 @@ async function generateVQLE(rows, existingMap) {
       console.log(`💾 Saved VQLE JSON ${jsonFile}`);
     }
 
-    let imageFile = `${tokenId}.png`;
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     if (metadata.image?.startsWith("ipfs://")) {
       const downloadedImageFile = path.basename(metadata.image);
@@ -238,7 +252,8 @@ async function generateSCIONS(rows, provider, existingMap) {
 
   for (const tokenId of missingIds) {
     let jsonFile = null;
-    let imageFile = `${tokenId}.png`;
+
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     try {
       const tokenURI = await contract.tokenURI(tokenId);
@@ -287,6 +302,62 @@ async function generateSCIONS(rows, provider, existingMap) {
   }
 }
 
+/* ---------------- EVG ---------------- */
+async function generateEVG(rows, existingMap) {
+  ensureDir(EVG_JSON_DIR);
+  ensureDir(EVG_IMAGE_DIR);
+
+  const missingIds = getMissingTokenIds(existingMap, "EVG", EVG_MAX_SUPPLY);
+  if (missingIds.length === 0) {
+    console.log("✅ EVG already fully cached");
+    return;
+  }
+
+  console.log(`EVG missing tokens: ${missingIds.length}`);
+
+  const baseCid = EVG_IPFS_BASE.replace(/https?:\/\/[^/]+\//, "");
+
+  for (const tokenId of missingIds) {
+    const jsonFile = `${tokenId}.json`;
+    const jsonPath = path.join(EVG_JSON_DIR, jsonFile);
+    let metadata;
+
+    if (fs.existsSync(jsonPath)) {
+      metadata = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+    } else {
+      const jsonUri = `ipfs://${baseCid}${jsonFile}`;
+      const rawJson = await fetchWithRetries(jsonUri, 3, 5000, "arraybuffer");
+      if (!rawJson) continue;
+
+      metadata = JSON.parse(rawJson.toString());
+      fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
+      console.log(`💾 Saved EVG JSON ${jsonFile}`);
+    }
+
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
+
+    if (metadata.image?.startsWith("ipfs://")) {
+      const downloadedImageFile = path.basename(metadata.image);
+      const imagePath = path.join(EVG_IMAGE_DIR, downloadedImageFile);
+
+      if (!fs.existsSync(imagePath)) {
+        const img = await fetchWithRetries(metadata.image, 3, 5000, "arraybuffer");
+        if (img) {
+          fs.writeFileSync(imagePath, img);
+          console.log(`🖼️ Downloaded EVG image ${downloadedImageFile}`);
+        }
+      }
+
+      imageFile = downloadedImageFile;
+    }
+
+    rows.push(`EVG,${tokenId},${jsonFile},${imageFile}`);
+    console.log(`Added EVG ${tokenId} → ${jsonFile} / ${imageFile}`);
+
+    await sleep(100);
+  }
+}
+
 /* ---------------- Main ---------------- */
 export async function generateMapping(mode = "ALL") {
   ensureDataPaths();
@@ -310,6 +381,10 @@ export async function generateMapping(mode = "ALL") {
 
   if (selected === "VQLE" || selected === "ALL") {
     await generateVQLE(rows, existingMap);
+  }
+
+  if (selected === "EVG" || selected === "ALL") {
+    await generateEVG(rows, existingMap);
   }
 
   fs.writeFileSync(MAPPING_FILE, rows.join("\n"));

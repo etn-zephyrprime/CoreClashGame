@@ -28,6 +28,7 @@ const addressToCollection = {
   "0x3fc7665b1f6033ff901405cddf31c2e04b8a2ab4": "VKIN",
   "0x8cfbb04c54d35e2e8471ad9040d40d73c08136f0": "VQLE",
   "0xac620b1a3de23f4eb0a69663613babf73f6c535d": "SCIONS",
+  "0x5C81a5609EaeEF7962F1D089D6343F9790387901": "EVG",
 };
 
 // Collection → faction mapping
@@ -35,6 +36,7 @@ const collectionToFaction = {
   VKIN: "KIN",
   VQLE: "KIN",
   SCIONS: "SCIONS",
+  EVG: "SCIONS",
 };
 
 function getCollectionFromContract(contractAddr) {
@@ -54,6 +56,7 @@ function getFactionFromCollection(collection) {
  * - VKIN + VKIN + VQLE => KIN
  * - VQLE + VQLE + VKIN => KIN
  * - SCIONS + SCIONS + SCIONS => SCIONS
+ * - SCIONS + EVG + EVG => SCIONS
  * - VKIN + SCIONS + VQLE => null
  */
 function getTeamFactionBonus(contracts) {

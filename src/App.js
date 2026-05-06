@@ -21,6 +21,7 @@ import {
   VKIN_CONTRACT_ADDRESS,
   VQLE_CONTRACT_ADDRESS,
   SCIONS_CONTRACT_ADDRESS,
+  EVG_CONTRACT_ADDRESS,
   RARE_BACKGROUNDS,
   ADMIN_ADDRESS,
   ADDRESS_TO_COLLECTION_KEY,
@@ -32,7 +33,7 @@ import { renderTokenImages } from "./renderTokenImages.jsx";
 
 import {
   CoreClashLogo, AppBackground, PlanetZephyrosAE, HowToPlay, GameInfo, ElectroSwap,
-  VerdantKinBanner, ElectroneumLogo, AetherScionsBanner, VerdantQueenBanner, EtnClubLogo
+  VerdantKinBanner, ElectroneumLogo, AetherScionsBanner, VerdantQueenBanner, EtnClubLogo, EvgBanner
 } from "./appMedia/media.js";
 
 import { FaTelegramPlane } from "react-icons/fa";
@@ -1606,6 +1607,7 @@ const resolveCollectionKeyFromAddress = (rawAddr) => {
   if (addr === VKIN_CONTRACT_ADDRESS.toLowerCase()) return "VKIN";
   if (addr === VQLE_CONTRACT_ADDRESS.toLowerCase()) return "VQLE";
   if (addr === SCIONS_CONTRACT_ADDRESS.toLowerCase()) return "SCIONS";
+  if (addr === EVG_CONTRACT_ADDRESS.toLowerCase()) return "EVG";
   return null;
 };
 
@@ -2594,6 +2596,7 @@ return (
     VerdantKinBanner={VerdantKinBanner}
     VerdantQueenBanner={VerdantQueenBanner}
     AetherScionsBanner={AetherScionsBanner}
+    EvgBanner={EvgBanner}
   />
 </div>
 
@@ -2914,6 +2917,8 @@ return (
           collectionKey = "VQLE";
         } else if (rawAddr === SCIONS_CONTRACT_ADDRESS.toLowerCase()) {
           collectionKey = "SCIONS";
+        } else if (rawAddr === EVG_CONTRACT_ADDRESS.toLowerCase()) {
+          collectionKey = "EVG";
         } else {
           collectionKey = null;
         }
@@ -2923,11 +2928,20 @@ return (
             ? mapping[collectionKey]?.[String(slot.tokenId)]
             : null;
 
-        const imageFile = mapped
-          ? mapped.image_file ||
-            mapped.token_uri?.replace(/\.json$/i, ".png") ||
-            `${slot.tokenId}.png`
-          : `${slot.tokenId}.png`;
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
+
+const format = COLLECTION_IMAGE_FORMATS[collectionKey] || "png";
+
+const imageFile = mapped
+  ? mapped.image_file ||
+    mapped.token_uri?.replace(/\.json$/i, `.${format}`) ||
+    `${slot.tokenId}.${format}`
+  : `${slot.tokenId}.${format}`;
 
         const imageSrc =
           imageFile && collectionKey
@@ -3055,6 +3069,8 @@ return (
                   collectionKey = "VQLE";
                 } else if (rawAddr === SCIONS_CONTRACT_ADDRESS.toLowerCase()) {
                   collectionKey = "SCIONS";
+                } else if (rawAddr === EVG_CONTRACT_ADDRESS.toLowerCase()) {
+                  collectionKey = "EVG";
                 } else {
                   collectionKey = null;
                 }
@@ -3064,11 +3080,11 @@ return (
                     ? mapping[collectionKey]?.[String(nftOption.tokenId)]
                     : null;
 
-                const imageFile = mapped
-                  ? mapped.image_file ||
-                    mapped.token_uri?.replace(/\.json$/i, ".png") ||
-                    `${nftOption.tokenId}.png`
-                  : `${nftOption.tokenId}.png`;
+const imageFile = mapped
+  ? mapped.image_file ||
+    mapped.token_uri?.replace(/\.json$/i, `.${format}`) ||
+    `${nftOption.tokenId}.${format}`
+  : `${nftOption.tokenId}.${format}`;
 
                 const imageSrc =
                   imageFile && collectionKey

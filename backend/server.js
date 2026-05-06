@@ -81,7 +81,17 @@ app.get("/metadata/:collection/:tokenId", (req, res) => {
     }
 
     const jsonFile = mapped.token_uri || `${tokenId}.json`;
-    const imageFile = mapped.image_file || `${tokenId}.png`;
+
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
+
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     const filePath = path.join(METADATA_JSON_DIR, collectionKey, jsonFile);
 

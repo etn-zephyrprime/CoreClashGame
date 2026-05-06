@@ -2,6 +2,7 @@ import {
   VKIN_CONTRACT_ADDRESS,
   VQLE_CONTRACT_ADDRESS,
   SCIONS_CONTRACT_ADDRESS,
+  EVG_CONTRACT_ADDRESS,
 } from "./config.js";
 
 export const NFT_COLLECTIONS = [
@@ -19,6 +20,11 @@ export const NFT_COLLECTIONS = [
     key: "SCIONS",
     name: "Aether Scions",
     address: SCIONS_CONTRACT_ADDRESS.toLowerCase(),
+  },
+  {
+    key: "EVG",
+    name: "Guardians of Erevos",
+    address: EVG_CONTRACT_ADDRESS.toLowerCase(),
   },
 ];
 

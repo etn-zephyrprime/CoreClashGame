@@ -3,6 +3,7 @@ import { RPC_URL, VKIN_CONTRACT_ADDRESS, VQLE_CONTRACT_ADDRESS } from "../config
 import VKIN_ABI from "../../src/abis/VKINABI.json" with { type: "json" };
 import VQLE_ABI from "../../src/abis/VQLEABI.json" with { type: "json" };
 import SCIONS_ABI from "../../src/abis/SCIONSABI.json" with { type: "json" };
+import EVG_ABI from "../../src/abis/EVGABI.json" with { type: "json" };
 
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
@@ -14,7 +15,7 @@ export async function fetchOwnedTokenIds(contract, wallet, collection) {
   const tokenIds = [];
   const walletLc = wallet.toLowerCase();
 
-  if (!["VKIN", "VQLE", "SCIONS"].includes(collection)) {
+  if (!["VKIN", "VQLE", "SCIONS", "EVG"].includes(collection)) {
     throw new Error(`Unknown collection: ${collection}`);
   }
 
@@ -70,7 +71,21 @@ export async function fetchOwnedTokenIds(contract, wallet, collection) {
           tokenIds.push(t.toString());
         }
       } catch (err) {
-        console.warn(`Failed SCIONS token ${t}: ${err.message}`);
+        continue;
+      }
+    }
+  } else if (collection === "EVG") {
+    const MAX_TOKEN_ID = 1000;
+    console.log(`Scanning EVG 1 to ${MAX_TOKEN_ID}`);
+
+    for (let t = 1; t <= MAX_TOKEN_ID; t++) {
+      await delay(200);
+      try {
+        const owner = await contract.ownerOf(BigInt(t));
+        if (owner.toLowerCase() === walletLc) {
+          tokenIds.push(t.toString());
+        }
+      } catch {
         continue;
       }
     }

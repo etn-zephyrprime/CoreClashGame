@@ -5,10 +5,18 @@ import { parse } from "csv-parse/sync";
 import VKIN_ABI_JSON from "../src/abis/VKINABI.json" with { type: "json" };
 import VQLE_ABI_JSON from "../src/abis/VQLEABI.json" with { type: "json" };
 import SCIONS_ABI_JSON from "../src/abis/SCIONSABI.json" with { type: "json" };
+import EVG_ABI_JSON from "../src/abis/EVGABI.json" with { type: "json" };
 import { RPC_URL } from "./config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
 
 const BASE_DATA_DIR =
   process.env.DATA_DIR ||
@@ -37,6 +45,7 @@ export const REVEAL_DIR = path.join(BASE_DATA_DIR, "reveals");
 export const VKIN_ABI = VKIN_ABI_JSON;
 export const VQLE_ABI = VQLE_ABI_JSON;
 export const SCIONS_ABI = SCIONS_ABI_JSON;
+export const EVG_ABI = EVG_ABI_JSON;
 
 export { RPC_URL };
 
@@ -83,16 +92,17 @@ export function loadMapping() {
 
     if (!map[collection]) map[collection] = {};
 
-    map[collection][tokenId] = {
-      token_uri: r.token_uri?.trim(),
-      image_file:
-        r.image_file?.trim() ||
-        (r.token_uri
-          ? r.token_uri.replace(/\.json$/i, ".png")
-          : `${tokenId}.png`),
-    };
-  }
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
+map[collection][tokenId] = {
+  token_uri: r.token_uri?.trim(),
+  image_file:
+    r.image_file?.trim() ||
+    (r.token_uri
+      ? r.token_uri.replace(/\.json$/i, `.${format}`)
+      : `${tokenId}.${format}`),
+};
+}
   return map;
 }
 
