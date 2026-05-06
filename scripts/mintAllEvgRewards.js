@@ -3,7 +3,7 @@ import {
   RPC_URL,
   BACKEND_PRIVATE_KEY,
   EVG_CONTRACT_ADDRESS,
-} from "../config.js";
+} from "../src/config.js";
 
 const EVGABI = [
   "function presaleMint(uint256 quantity, bytes32[] proof) payable",
