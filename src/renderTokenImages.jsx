@@ -77,23 +77,22 @@ const imageFile = token.imageFile || `${tokenId}.${format}`;
 
       const mappingKey = collection;
       const tokenId = String(id);
-      const imageFile = tokenId.imageFile || `${tokenId}.${format}`;
-      const mapped = mapping?.[mappingKey]?.[tokenId];
-
-      console.log(`Slot ${idx} final:`, {
-        rawAddr,
-        cleanedAddr: addr,
-        collection,
-        mappingKey,
-        tokenId,
-        tokenURI: tokenURIs[idx] || "none",
-        mapped,
-      });
-
-      // Priority 1: explicit tokenURI from backend
-// Priority 1: live mapping.json
+const mapped = mapping?.[mappingKey]?.[String(tokenId)];
 const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
+let imageFile = `${tokenId}.${format}`;
+
+console.log(`Slot ${idx} final:`, {
+  rawAddr,
+  cleanedAddr: addr,
+  collection,
+  mappingKey,
+  tokenId,
+  tokenURI: tokenURIs[idx] || "none",
+  mapped,
+});
+
+// Priority 1: live mapping.json
 if (mapped) {
   imageFile =
     mapped?.image_file ??
@@ -109,15 +108,6 @@ else if (tokenURIs[idx]) {
   console.log(
     `Slot ${idx}: backend tokenURI → ${imageFile} (collection: ${collection}, mappingKey: ${mappingKey})`
   );
-}
-      // Priority 2: live mapping.json from backend
-else if (mapped) {
-  const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
-
-  imageFile =
-    mapped?.image_file ??
-    mapped?.token_uri?.replace(/\.json$/i, `.${format}`) ??
-    `${tokenId}.${format}`;
 
         console.log(`Slot ${idx}: live mapping → ${imageFile}`);
       } else {
