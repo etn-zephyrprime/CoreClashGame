@@ -1,6 +1,6 @@
 export const IPFS_BASE = "https://ipfs.io/ipfs/QmZMPmh6qg31NqH5tFKoQ5k3uMDBNMxkQUS7tyqCZstUNv/";
 export const VQLE_IPFS_BASE = "https://gateway.pinata.cloud/ipfs/bafybeic2zhpgnjbzmvzxnsdjhs74aym5j7ain4kgwgat3dym53g3sbmghe/";
-export const EVG_IPFS_BASE = "https://gateway.pinata.cloud/ipfs/bafybeiak2sh4cyfyx5xxldcfppfkoibjpnwcnt7ltdog5vej2buh7xy26i/1.json";
+export const EVG_IPFS_BASE = "https://gateway.pinata.cloud/ipfs/bafybeiak2sh4cyfyx5xxldcfppfkoibjpnwcnt7ltdog5vej2buh7xy26i/";
 export const IPFS_GATEWAYS = [
   "https://dweb.link/ipfs",
   "https://cloudflare-ipfs.com/ipfs",
