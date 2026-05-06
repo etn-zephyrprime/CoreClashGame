@@ -328,7 +328,10 @@ async function generateEVG(rows, existingMap) {
 
   console.log(`EVG missing tokens: ${missingIds.length}`);
 
-  const baseCid = EVG_IPFS_BASE.replace(/https?:\/\/[^/]+\//, "");
+const baseCid = EVG_IPFS_BASE
+  .replace(/^ipfs:\/\//, "")
+  .replace(/^https?:\/\/[^/]+\/ipfs\//, "")
+  .replace(/\/?$/, "/");
 
   for (const tokenId of missingIds) {
     const jsonFile = `${tokenId}.json`;
