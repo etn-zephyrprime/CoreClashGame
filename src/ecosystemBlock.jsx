@@ -71,7 +71,7 @@ export default function EcosystemBlock({
   alt: "Guardians of Erevos",
   imageSrc: EvgBanner,
   objectFit: "contain",
-  desktopMaxWidth: 320,
+  desktopMaxWidth: 400,
   desktopHeight: 78,
   imageScale: 0.92,
   imageTranslateY: 0,
