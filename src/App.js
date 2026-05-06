@@ -3080,6 +3080,13 @@ const imageFile = mapped
                     ? mapping[collectionKey]?.[String(nftOption.tokenId)]
                     : null;
 
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  SCIONS: "png",
+  VQLE: "png",
+  VKIN: "png",
+};
+
 const format = COLLECTION_IMAGE_FORMATS[collectionKey] || "png";
 
 const imageFile = mapped
