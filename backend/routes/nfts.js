@@ -49,10 +49,20 @@ async function enrichToken(collection, tokenIdStr, nftAddress, liveMapping = {})
   const mapped = liveMapping?.[collection]?.[tokenId];
 
   let tokenURI = mapped?.token_uri || `${tokenId}.json`;
-  let imageFile =
-    mapped?.image_file ||
-    tokenURI.replace(/\.json$/i, ".png");
 
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
+
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+let imageFile =
+  mapped?.image_file ||
+  tokenURI.replace(/\.json$/i, `.${format}`);
+  
   let name = `${collection} #${tokenId}`;
   let background = "Unknown";
 

@@ -11,6 +11,13 @@ import { RPC_URL } from "./config.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
+
 const BASE_DATA_DIR =
   process.env.DATA_DIR ||
   process.env.RENDER_DISK_PATH ||
@@ -85,16 +92,17 @@ export function loadMapping() {
 
     if (!map[collection]) map[collection] = {};
 
-    map[collection][tokenId] = {
-      token_uri: r.token_uri?.trim(),
-      image_file:
-        r.image_file?.trim() ||
-        (r.token_uri
-          ? r.token_uri.replace(/\.json$/i, ".png")
-          : `${tokenId}.png`),
-    };
-  }
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
+map[collection][tokenId] = {
+  token_uri: r.token_uri?.trim(),
+  image_file:
+    r.image_file?.trim() ||
+    (r.token_uri
+      ? r.token_uri.replace(/\.json$/i, `.${format}`)
+      : `${tokenId}.${format}`),
+};
+}
   return map;
 }
 

@@ -49,11 +49,16 @@ export async function checkFrontendMapping() {
 
     if (!mapping[collection]) mapping[collection] = {};
 
-    mapping[collection][tokenId] = {
-      token_uri: tokenURI.trim(),
-      image_file: (imageFile || tokenURI.replace(/\.json$/i, ".png")).trim(),
-    };
-  }
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+mapping[collection][tokenId] = {
+  token_uri: tokenURI.trim(),
+  image_file: (
+    imageFile ||
+    tokenURI.replace(/\.json$/i, `.${format}`)
+  ).trim(),
+};
+}
 
   fs.writeFileSync(FRONTEND_MAPPING_FILE, JSON.stringify(mapping, null, 2));
   console.log(`✅ Frontend mapping.json generated at ${FRONTEND_MAPPING_FILE}`);

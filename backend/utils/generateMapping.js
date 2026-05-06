@@ -120,7 +120,17 @@ async function generateVKIN(rows, provider, existingMap) {
 
   for (const tokenId of missingIds) {
     let jsonFile = null;
-    let imageFile = `${tokenId}.png`;
+
+    const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
+
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     try {
       const tokenURI = await contract.tokenURI(tokenId);
@@ -201,7 +211,7 @@ async function generateVQLE(rows, existingMap) {
       console.log(`💾 Saved VQLE JSON ${jsonFile}`);
     }
 
-    let imageFile = `${tokenId}.png`;
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     if (metadata.image?.startsWith("ipfs://")) {
       const downloadedImageFile = path.basename(metadata.image);
@@ -242,7 +252,8 @@ async function generateSCIONS(rows, provider, existingMap) {
 
   for (const tokenId of missingIds) {
     let jsonFile = null;
-    let imageFile = `${tokenId}.png`;
+
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     try {
       const tokenURI = await contract.tokenURI(tokenId);
@@ -323,7 +334,7 @@ async function generateEVG(rows, existingMap) {
       console.log(`💾 Saved EVG JSON ${jsonFile}`);
     }
 
-    let imageFile = `${tokenId}.png`;
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
 
     if (metadata.image?.startsWith("ipfs://")) {
       const downloadedImageFile = path.basename(metadata.image);

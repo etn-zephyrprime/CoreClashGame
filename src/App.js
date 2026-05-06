@@ -2928,11 +2928,20 @@ return (
             ? mapping[collectionKey]?.[String(slot.tokenId)]
             : null;
 
-        const imageFile = mapped
-          ? mapped.image_file ||
-            mapped.token_uri?.replace(/\.json$/i, ".png") ||
-            `${slot.tokenId}.png`
-          : `${slot.tokenId}.png`;
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
+
+const format = COLLECTION_IMAGE_FORMATS[collectionKey] || "png";
+
+const imageFile = mapped
+  ? mapped.image_file ||
+    mapped.token_uri?.replace(/\.json$/i, `.${format}`) ||
+    `${slot.tokenId}.${format}`
+  : `${slot.tokenId}.${format}`;
 
         const imageSrc =
           imageFile && collectionKey
@@ -3071,11 +3080,11 @@ return (
                     ? mapping[collectionKey]?.[String(nftOption.tokenId)]
                     : null;
 
-                const imageFile = mapped
-                  ? mapped.image_file ||
-                    mapped.token_uri?.replace(/\.json$/i, ".png") ||
-                    `${nftOption.tokenId}.png`
-                  : `${nftOption.tokenId}.png`;
+const imageFile = mapped
+  ? mapped.image_file ||
+    mapped.token_uri?.replace(/\.json$/i, `.${format}`) ||
+    `${nftOption.tokenId}.${format}`
+  : `${nftOption.tokenId}.${format}`;
 
                 const imageSrc =
                   imageFile && collectionKey

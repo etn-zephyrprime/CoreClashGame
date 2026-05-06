@@ -455,27 +455,22 @@ tokens = tokenIds.map((id, idx) => {
       ? "SCIONS"
       : "VKIN");
 
-  let imageFile = `${id}.png`;
-  const mappedEntry = mapping[collection]?.[String(id)];
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
-  if (collection === "SCIONS") {
-    if (tokenURIs[idx]) {
-      imageFile = tokenURIs[idx].replace(/\.json$/i, ".png").toLowerCase();
-    } else if (mappedEntry?.image_file) {
-      imageFile = mappedEntry.image_file;
-    } else if (mappedEntry?.token_uri) {
-      imageFile = mappedEntry.token_uri.replace(/\.json$/i, ".png").toLowerCase();
-    }
-  } else {
-    if (mappedEntry?.image_file) {
-      imageFile = mappedEntry.image_file;
-    } else if (mappedEntry?.token_uri) {
-      imageFile = mappedEntry.token_uri.replace(/\.json$/i, ".png").toLowerCase();
-    } else if (tokenURIs[idx]) {
-      imageFile = tokenURIs[idx].replace(/\.json$/i, ".png").toLowerCase();
-    }
-  }
+let imageFile = `${id}.${format}`;
+const mappedEntry = mapping[collection]?.[String(id)];
 
+if (mappedEntry?.image_file) {
+  imageFile = mappedEntry.image_file;
+} else if (mappedEntry?.token_uri) {
+  imageFile = mappedEntry.token_uri
+    .replace(/\.json$/i, `.${format}`)
+    .toLowerCase();
+} else if (tokenURIs[idx]) {
+  imageFile = tokenURIs[idx]
+    .replace(/\.json$/i, `.${format}`)
+    .toLowerCase();
+}
   return { collection, tokenId: id, imageFile };
 });
   }

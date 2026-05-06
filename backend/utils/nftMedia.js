@@ -42,26 +42,28 @@ export function resolveNftImageFile({
   const mapping = loadMapping();
   const mappedEntry = mapping?.[collection]?.[String(tokenId)];
 
-  let imageFile = `${tokenId}.png`;
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VQLE: "png",
+  SCIONS: "png",
+  VKIN: "png",
+};
 
-  if (collection === "SCIONS") {
-    if (tokenURI) {
-      imageFile = String(tokenURI).replace(/\.json$/i, ".png").toLowerCase();
-    } else if (mappedEntry?.image_file) {
-      imageFile = mappedEntry.image_file;
-    } else if (mappedEntry?.token_uri) {
-      imageFile = String(mappedEntry.token_uri).replace(/\.json$/i, ".png").toLowerCase();
-    }
-  } else {
-    if (mappedEntry?.image_file) {
-      imageFile = mappedEntry.image_file;
-    } else if (mappedEntry?.token_uri) {
-      imageFile = String(mappedEntry.token_uri).replace(/\.json$/i, ".png").toLowerCase();
-    } else if (tokenURI) {
-      imageFile = String(tokenURI).replace(/\.json$/i, ".png").toLowerCase();
-    }
-  }
+const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
+const imageFile = mapped.image_file || `${tokenId}.${format}`;
+
+if (mappedEntry?.image_file) {
+  imageFile = mappedEntry.image_file;
+} else if (mappedEntry?.token_uri) {
+  imageFile = String(mappedEntry.token_uri)
+    .replace(/\.json$/i, `.${format}`)
+    .toLowerCase();
+} else if (tokenURI) {
+  imageFile = String(tokenURI)
+    .replace(/\.json$/i, `.${format}`)
+    .toLowerCase();
+}
   return {
     collection,
     imageFile,
