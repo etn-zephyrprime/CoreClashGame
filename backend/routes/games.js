@@ -6,7 +6,7 @@ import { Wallet, ethers } from "ethers";
 import { fileURLToPath } from "url";
 import { METADATA_JSON_DIR, REVEAL_DIR, MAPPING_FILE, loadMapping } from "../paths.js";
 import { RPC_URL, BACKEND_PRIVATE_KEY, GAME_ADDRESS, 
-  VKIN_CONTRACT_ADDRESS, VQLE_CONTRACT_ADDRESS, SCIONS_CONTRACT_ADDRESS } from "../config.js";
+  VKIN_CONTRACT_ADDRESS, VQLE_CONTRACT_ADDRESS, SCIONS_CONTRACT_ADDRESS, EVG_CONTRACT_ADDRESS } from "../config.js";
 import GameABI from "../../src/abis/GameABI.json" with { type: "json" };
 import { readGames, writeGames } from "../store/gamesStore.js";
 import { resolveGame } from "../gameLogic.js";
@@ -20,6 +20,7 @@ import { authWallet } from "../middleware/authWallet.js";
 import VKIN_ABI from "../../src/abis/VKINABI.json" with { type: "json" };
 import VQLE_ABI from "../../src/abis/VQLEABI.json" with { type: "json" };
 import SCIONS_ABI from "../../src/abis/SCIONSABI.json" with { type: "json" };
+import EVG_ABI from "../../src/abis/EVGABI.json" with { type: "json" };
 import { readBurnTotal } from "../store/burnStore.js";
 import { rebuildWeeklyLeaderboardForDate } from "../utils/weeklyLeaderboard.js";
 import { awardXp, adjustXp, XP_REWARDS } from "../utils/playerXp.js";
@@ -197,6 +198,7 @@ try {
         const vkin = new ethers.Contract(VKIN_CONTRACT_ADDRESS, VKIN_ABI, provider);
         const vqle = new ethers.Contract(VQLE_CONTRACT_ADDRESS, VQLE_ABI, provider);
         const scions = new ethers.Contract(SCIONS_CONTRACT_ADDRESS, SCIONS_ABI, provider);
+        const evg = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVG_ABI, provider);
 
         console.log("Fetching VKIN tokens...");
         const vkinIds = await fetchOwnedTokenIds(vkin, player1Lc, "VKIN");
@@ -207,6 +209,9 @@ try {
         console.log("Fetching SCIONS tokens...");
         const scionsIds = await fetchOwnedTokenIds(scions, player1Lc, "SCIONS");
 
+        console.log("Fetching EVG tokens...");
+        const evgIds = await fetchOwnedTokenIds(evg, player1Lc, "EVG");
+
         const freshCache = readOwnerCache();
 
         if (!freshCache[player1Lc]) {
@@ -214,11 +219,12 @@ try {
             VKIN: vkinIds,
             VQLE: vqleIds,
             SCIONS: scionsIds,
+            EVG: evgIds,
           };
 
           writeOwnerCache(freshCache);
           console.log(
-            `Cache populated for ${player1Lc}: ${vkinIds.length} VKIN, ${vqleIds.length} VQLE, ${scionsIds.length} SCIONS`
+            `Cache populated for ${player1Lc}: ${vkinIds.length} VKIN, ${vqleIds.length} VQLE, ${scionsIds.length} SCIONS, ${evgIds.length} EVG`
           );
         } else {
           console.log(`Owner cache already exists for ${player1Lc}, skipping write`);
@@ -378,6 +384,7 @@ router.post("/:id/reveal", authWallet, async (req, res) => {
       [VKIN_CONTRACT_ADDRESS.toLowerCase()]: "VKIN",
       [VQLE_CONTRACT_ADDRESS.toLowerCase()]: "VQLE",
       [SCIONS_CONTRACT_ADDRESS.toLowerCase()]: "SCIONS",
+      [EVG_CONTRACT_ADDRESS.toLowerCase()]: "EVG",
     };
 
     const mapping = loadMapping();

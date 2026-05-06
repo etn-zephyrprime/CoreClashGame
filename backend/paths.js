@@ -5,6 +5,7 @@ import { parse } from "csv-parse/sync";
 import VKIN_ABI_JSON from "../src/abis/VKINABI.json" with { type: "json" };
 import VQLE_ABI_JSON from "../src/abis/VQLEABI.json" with { type: "json" };
 import SCIONS_ABI_JSON from "../src/abis/SCIONSABI.json" with { type: "json" };
+import EVG_ABI_JSON from "../src/abis/EVGABI.json" with { type: "json" };
 import { RPC_URL } from "./config.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,6 +38,7 @@ export const REVEAL_DIR = path.join(BASE_DATA_DIR, "reveals");
 export const VKIN_ABI = VKIN_ABI_JSON;
 export const VQLE_ABI = VQLE_ABI_JSON;
 export const SCIONS_ABI = SCIONS_ABI_JSON;
+export const EVG_ABI = EVG_ABI_JSON;
 
 export { RPC_URL };
 

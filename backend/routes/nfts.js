@@ -5,11 +5,12 @@ import path from "path";
 import { ethers } from "ethers";
 import { readOwnerCache, writeOwnerCache } from "../utils/ownerCache.js";
 import { METADATA_JSON_DIR, FRONTEND_MAPPING_FILE } from "../paths.js";
-import { RPC_URL, VKIN_CONTRACT_ADDRESS, VQLE_CONTRACT_ADDRESS, SCIONS_CONTRACT_ADDRESS } from "../config.js";
+import { RPC_URL, VKIN_CONTRACT_ADDRESS, VQLE_CONTRACT_ADDRESS, SCIONS_CONTRACT_ADDRESS, EVG_CONTRACT_ADDRESS } from "../config.js";
 import { fetchOwnedTokenIds } from "../utils/nftUtils.js";
 import VKIN_ABI from "../../src/abis/VKINABI.json" with { type: "json" };
 import VQLE_ABI from "../../src/abis/VQLEABI.json" with { type: "json" };
 import SCIONS_ABI from "../../src/abis/SCIONSABI.json" with { type: "json" };
+import EVG_ABI from "../../src/abis/EVGABI.json" with { type: "json" };
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const RETRY_COUNT = 3; 
@@ -105,6 +106,7 @@ router.post("/force-cache/:wallet", async (req, res) => {
     const vkin = new ethers.Contract(VKIN_CONTRACT_ADDRESS, VKIN_ABI, provider);
     const vqle = new ethers.Contract(VQLE_CONTRACT_ADDRESS, VQLE_ABI, provider);
     const scions = new ethers.Contract(SCIONS_CONTRACT_ADDRESS, SCIONS_ABI, provider);
+    const evg = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVG_ABI, provider);
 
 
     console.log("Force-scanning VKIN...");
@@ -116,12 +118,15 @@ const vqleIds = await retryRpc(() => fetchOwnedTokenIds(vqle, wallet, "VQLE"));
     console.log("Force-scanning SCIONS...");
 const scionsIds = await retryRpc(() => fetchOwnedTokenIds(scions, wallet, "SCIONS"));
 
-    cache[wallet] = { VKIN: vkinIds, VQLE: vqleIds, SCIONS: scionsIds };
+    console.log("Force-scanning EVG...");
+const evgIds = await retryRpc(() => fetchOwnedTokenIds(evg, wallet, "EVG"));
+
+    cache[wallet] = { VKIN: vkinIds, VQLE: vqleIds, SCIONS: scionsIds, EVG: evgIds };
     writeOwnerCache(cache);
 
-    console.log(`Force cache filled: ${vkinIds.length} VKIN, ${vqleIds.length} VQLE, ${scionsIds.length} SCIONS`);
+    console.log(`Force cache filled: ${vkinIds.length} VKIN, ${vqleIds.length} VQLE, ${scionsIds.length} SCIONS, ${evgIds.length} EVG`);
 
-    res.json({ success: true, tokens: { VKIN: vkinIds.length, VQLE: vqleIds.length, SCIONS: scionsIds.length } });
+    res.json({ success: true, tokens: { VKIN: vkinIds.length, VQLE: vqleIds.length, SCIONS: scionsIds.length, EVG: evgIds.length } });
   } catch (err) {
     console.error("Force cache failed:", err.message);
     res.status(500).json({ error: err.message });
@@ -140,14 +145,16 @@ walletCache = {
   VKIN: Array.isArray(walletCache.VKIN) ? walletCache.VKIN : [],
   VQLE: Array.isArray(walletCache.VQLE) ? walletCache.VQLE : [],
   SCIONS: Array.isArray(walletCache.SCIONS) ? walletCache.SCIONS : [],
+  EVG: Array.isArray(walletCache.EVG) ? walletCache.EVG : [],
 };
 
   // Force scan if cache is empty
 const shouldScanVKIN = !Array.isArray(walletCache.VKIN) || walletCache.VKIN.length === 0;
 const shouldScanVQLE = !Array.isArray(walletCache.VQLE) || walletCache.VQLE.length === 0;
 const shouldScanSCIONS = !Array.isArray(walletCache.SCIONS) || walletCache.SCIONS.length === 0;
+const shouldScanEVG = !Array.isArray(walletCache.EVG) || walletCache.EVG.length === 0;
 
-if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS) {
+if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS, shouldScanEVG) {
   console.log("Partial/empty cache — scanning missing collections for", wallet);
 
   try {
@@ -155,6 +162,7 @@ if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS) {
     const vkin = new ethers.Contract(VKIN_CONTRACT_ADDRESS, VKIN_ABI, provider);
     const vqle = new ethers.Contract(VQLE_CONTRACT_ADDRESS, VQLE_ABI, provider);
     const scions = new ethers.Contract(SCIONS_CONTRACT_ADDRESS, SCIONS_ABI, provider);
+    const evg = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVG_ABI, provider);
 
     if (shouldScanVKIN) {
       console.log("Scanning VKIN...");
@@ -171,11 +179,16 @@ if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS) {
       walletCache.SCIONS = await fetchOwnedTokenIds(scions, wallet, "SCIONS");
     }
 
+    if (shouldScanEVG) {
+      console.log("Scanning EVG...");
+      walletCache.EVG = await fetchOwnedTokenIds(evg, wallet, "EVG");
+    }
+
     cache[wallet] = walletCache;
     writeOwnerCache(cache);
 
     console.log(
-      `Cache updated: ${walletCache.VKIN.length} VKIN, ${walletCache.VQLE.length} VQLE, ${walletCache.SCIONS.length} SCIONS`
+      `Cache updated: ${walletCache.VKIN.length} VKIN, ${walletCache.VQLE.length} VQLE, ${walletCache.SCIONS.length} SCIONS, ${walletCache.EVG.length} EVG`
     );
   } catch (err) {
     console.error("On-chain scan failed:", err.message);
@@ -200,6 +213,10 @@ for (const tokenId of walletCache.VQLE || []) {
 
 for (const tokenId of walletCache.SCIONS || []) {
   result.push(await enrichToken("SCIONS", tokenId, SCIONS_CONTRACT_ADDRESS, liveMapping));
+}
+
+for (const tokenId of walletCache.EVG || []) {
+  result.push(await enrichToken("EVG", tokenId, EVG_CONTRACT_ADDRESS, liveMapping));
 }
 
 res.json(result);

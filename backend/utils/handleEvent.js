@@ -6,7 +6,8 @@ import { ethers } from "ethers";
 import {
   VKIN_CONTRACT_ADDRESS,
   VQLE_CONTRACT_ADDRESS,
-  SCIONS_CONTRACT_ADDRESS
+  SCIONS_CONTRACT_ADDRESS,
+  EVG_CONTRACT_ADDRESS
 } from "../config.js";
 
 // Sanitize BigInt values in args for logging and broadcasting
@@ -38,6 +39,7 @@ const isTrackedCollection =
   contractAddr === VKIN_CONTRACT_ADDRESS.toLowerCase() ||
   contractAddr === VQLE_CONTRACT_ADDRESS.toLowerCase() ||
   contractAddr === SCIONS_CONTRACT_ADDRESS.toLowerCase();
+  contractAddr === EVG_CONTRACT_ADDRESS.toLowerCase();
 
 if (isTrackedCollection) {
   if (from && from !== ethers.ZeroAddress.toLowerCase()) {

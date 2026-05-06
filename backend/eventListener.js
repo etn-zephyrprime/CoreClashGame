@@ -2,13 +2,15 @@ import { ethers } from "ethers";
 import GameABI from "../src/abis/GameABI.json" with { type: "json" };
 import VKINABI from "../src/abis/VKINABI.json" with { type: "json" };
 import VQLEABI from "../src/abis/VQLEABI.json" with { type: "json" };
-import SCIONSNABI from "../src/abis/SCIONSABI.json" with { type: "json" };
+import SCIONSABI from "../src/abis/SCIONSABI.json" with { type: "json" };
+import EVGABI from "../src/abis/SCIONSABI.json" with { type: "json" };
 import {
   GAME_ADDRESS,
   RPC_URL,
   VKIN_CONTRACT_ADDRESS,
   VQLE_CONTRACT_ADDRESS,
-  SCIONS_CONTRACT_ADDRESS
+  SCIONS_CONTRACT_ADDRESS,
+  EVG_CONTRACT_ADDRESS
 } from "./config.js";
 import { loadLastBlock, saveLastBlock } from "./utils/blockState.js";
 import { readOwnerCache, writeOwnerCache } from "./utils/ownerCache.js";
@@ -21,7 +23,8 @@ const provider = new ethers.JsonRpcProvider(RPC_URL);
 const gameContract = new ethers.Contract(GAME_ADDRESS, GameABI, provider);
 const vkinContract = new ethers.Contract(VKIN_CONTRACT_ADDRESS, VKINABI, provider);
 const vqleContract = new ethers.Contract(VQLE_CONTRACT_ADDRESS, VQLEABI, provider);
-const scionsContract = new ethers.Contract(SCIONS_CONTRACT_ADDRESS, SCIONSNABI, provider);
+const scionsContract = new ethers.Contract(SCIONS_CONTRACT_ADDRESS, SCIONSABI, provider);
+const evgContract = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVGABI, provider);
 
 const POLL_INTERVAL_MS = 6000;
 const MAX_BLOCK_RANGE = 500; // safe range for RPC
@@ -73,7 +76,7 @@ async function updateMultipleWalletCaches(wallets, collection) {
 
   if (uniqueWallets.length === 0) return;
 
-  if (!["VKIN", "VQLE", "SCIONS"].includes(collection)) {
+  if (!["VKIN", "VQLE", "SCIONS", "EVG"].includes(collection)) {
     console.error(`[AUTO-CACHE] Unknown collection for refresh: ${collection}`);
     return;
   }
@@ -88,13 +91,14 @@ async function updateMultipleWalletCaches(wallets, collection) {
     VKIN: vkinContract,
     VQLE: vqleContract,
     SCIONS: scionsContract,
+    EVG: evgContract,
   };
 
   const contractInstance = contractMap[collection];
 
   for (const wallet of uniqueWallets) {
     try {
-      const existing = cache[wallet] || { VKIN: [], VQLE: [], SCIONS: [] };
+      const existing = cache[wallet] || { VKIN: [], VQLE: [], SCIONS: [], EVG: [] };
 
       const refreshedTokenIds = await fetchOwnedTokenIds(
         contractInstance,
@@ -224,6 +228,7 @@ writeGames(games);
       const vkinLogs = await getTransferLogs(VKIN_CONTRACT_ADDRESS);
       const vqleLogs = await getTransferLogs(VQLE_CONTRACT_ADDRESS);
       const scionsLogs = await getTransferLogs(SCIONS_CONTRACT_ADDRESS);
+      const evgLogs = await getTransferLogs(EVG_CONTRACT_ADDRESS);
 
 const processLogs = async (logs, contractName, contractInstance) => {
   const affectedWallets = new Set();
@@ -267,6 +272,7 @@ const processLogs = async (logs, contractName, contractInstance) => {
       await processLogs(vkinLogs, "vkin", vkinContract);
       await processLogs(vqleLogs, "vqle", vqleContract);
       await processLogs(scionsLogs, "scions", scionsContract);
+      await processLogs(evgLogs, "evg", evgContract);
 
       lastBlock = toBlock;
       saveLastBlock(EVENT_LISTENER_BLOCK_KEY, lastBlock);

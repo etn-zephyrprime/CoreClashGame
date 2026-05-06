@@ -10,6 +10,8 @@ const addressToCollection = {
   "0x8cFBB04c54d35e2e8471Ad9040D40D73C08136f0": "VQLE",
   "0xAc620b1A3dE23F4EB0A69663613baBf73F6C535D": "SCIONS",
   "0xac620b1a3de23f4eb0a69663613babf73f6c535d": "SCIONS",
+  "0x5C81a5609EaeEF7962F1D089D6343F9790387901": "EVG",
+  "0x5c81a5609eaeef7962f1d089d6343f9790387901": "EVG",
   // add more if needed
 };
 
@@ -447,6 +449,8 @@ tokens = tokenIds.map((id, idx) => {
     addressToCollection[addr] ||
     (addr.includes("8cfbb04c")
       ? "VQLE"
+      :addr.includes("5c81a560")
+      ? "EVG"
       : addr.includes("ac620b1a3de23f4eb0a69663613babf73f6c535d")
       ? "SCIONS"
       : "VKIN");
