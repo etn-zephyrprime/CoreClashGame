@@ -23,6 +23,10 @@ import { ethers } from "ethers";
 import fs from "fs";
 import FormData from "form-data";
 import { resolveExistingNftImage } from "./nftMedia.js";
+import {
+  readAdvertState,
+  writeAdvertState,
+} from "../store/advertSchedulerStore.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ZEPHYROS_TELEGRAM_BOT_TOKEN = process.env.ZEPHYROS_TELEGRAM_BOT_TOKEN;
@@ -691,6 +695,88 @@ const shouldSendMedia = destination !== "ALL_SWAPS" && side !== "SELL";
   } catch (err) {
     console.error("[Telegram] sendSwapMessage error:", err.response?.data || err.message || err);
   }
+}
+
+import { readAdvertState, writeAdvertState } from "../store/advertSchedulerStore.js";
+
+const ADVERT_MESSAGES = [
+  `🌍 <b>Play Core Clash by Planet Zephyros!</b>\n\n` +
+    `Join the community: <a href="https://t.me/PlanetZephyros">t.me/PlanetZephyros</a>\n\n` +
+    `🎮 STAKE REVEAL BATTLE WIN:\n` +
+    `<a href="https://coreclash.planetzephyros.xyz">coreclash.planetzephyros.xyz</a>`,
+
+  `⚔️ <b>Ready for a Core Clash?</b>\n\n` +
+    `Pick your characters, reveal your team, and fight for victory.\n\n` +
+    `🎮 <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>\n` +
+    `🌍 <a href="https://t.me/PlanetZephyros">Join Planet Zephyros</a>`,
+
+  `🧬 <b>Planet Zephyros is growing.</b>\n\n` +
+    `NFT battles, community updates, and more are happening now.\n\n` +
+    `🌍 Telegram: <a href="https://t.me/PlanetZephyros">t.me/PlanetZephyros</a>\n` +
+    `🎮 Core Clash: <a href="https://coreclash.planetzephyros.xyz">Play now</a>`,
+];
+
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+function randomDelayWithinDayMs() {
+  return Math.floor(Math.random() * 24 * 60 * 60 * 1000);
+}
+
+function computeNextAdvertSendAt(from = new Date()) {
+  return new Date(
+    from.getTime() + THREE_DAYS_MS + randomDelayWithinDayMs()
+  ).toISOString();
+}
+
+export async function sendTelegramCoreClashAdvert() {
+  const state = readAdvertState();
+  const index = Number.isInteger(state.nextIndex) ? state.nextIndex : 0;
+
+  const text = ADVERT_MESSAGES[index % ADVERT_MESSAGES.length];
+
+  await sendTelegramGroupMessage(text, {
+    includeFooter: false,
+  });
+
+  writeAdvertState({
+    ...state,
+    lastSentAt: new Date().toISOString(),
+    nextIndex: (index + 1) % ADVERT_MESSAGES.length,
+    nextSendAt: computeNextAdvertSendAt(new Date()),
+  });
+}
+
+export function startCoreClashAdvertScheduler() {
+  let state = readAdvertState();
+
+  if (!state.nextSendAt) {
+    state = {
+      ...state,
+      nextSendAt: computeNextAdvertSendAt(new Date()),
+    };
+
+    writeAdvertState(state);
+  }
+
+  const scheduleNext = () => {
+    const freshState = readAdvertState();
+    const targetTime = new Date(freshState.nextSendAt).getTime();
+    const delay = Math.max(0, targetTime - Date.now());
+
+    console.log(`[TG AD] Next advert scheduled for ${freshState.nextSendAt}`);
+
+    setTimeout(async () => {
+      try {
+        await sendTelegramCoreClashAdvert();
+      } catch (err) {
+        console.error("[TG AD] Failed:", err.message || err);
+      }
+
+      scheduleNext();
+    }, delay);
+  };
+
+  scheduleNext();
 }
 
 // New function to send the weekly leaderboard message to Telegram

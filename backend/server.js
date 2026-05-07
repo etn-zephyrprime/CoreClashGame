@@ -25,6 +25,7 @@ import { sendTelegramWeeklyLeaderboard, sendTelegramFinalWeeklyLeaderboard, send
 import { processRevealDeadlineNotifications } from "./utils/revealDeadlineNotifier.js";
 import { startNftMintListener } from "./nftMintListener.js";
 import { startNftMarketplaceListener } from "./nftMarketplaceListener.js";
+import { startCoreClashAdvertScheduler } from "./utils/telegramBot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -204,6 +205,9 @@ try {
 } catch (err) {
   console.error("Failed to start NFT marketplace listener:", err);
 }
+
+startCoreClashAdvertScheduler();
+
 
 // ---------------- DEBUG ROUTE LOGGING ----------------
 setTimeout(() => {
