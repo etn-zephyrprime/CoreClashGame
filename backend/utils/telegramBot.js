@@ -7,8 +7,6 @@ import {
   CLUB_TELEGRAM_BOT_TOKEN,
   CLUB_TELEGRAM_CHAT_ID,
   CLUB_TELEGRAM_MESSAGE_THREAD_ID,
-  CLUB_ALL_SWAPS_CHAT_ID,
-  CLUB_ALL_SWAPS_MESSAGE_THREAD_ID,
   TOKEN_SYMBOL_MAP
 } from "../swapsConfig.js";
 
@@ -23,16 +21,11 @@ import { ethers } from "ethers";
 import fs from "fs";
 import FormData from "form-data";
 import { resolveExistingNftImage } from "./nftMedia.js";
-import {
-  readAdvertState,
-  writeAdvertState,
-} from "../store/advertSchedulerStore.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ZEPHYROS_TELEGRAM_BOT_TOKEN = process.env.ZEPHYROS_TELEGRAM_BOT_TOKEN;
 const TELEGRAM_GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID;
 const ZEPHYROS_NFT_MESSAGE_THREAD_ID = 782;
-
 
 // Default topic for Core Clash bot messages
 const TELEGRAM_MESSAGE_THREAD_ID = process.env.TELEGRAM_MESSAGE_THREAD_ID
@@ -568,24 +561,6 @@ function formatUsd(value) {
   });
 }
 
-function getSwapTelegramDestination(destination = "MAIN_ALERTS") {
-  if (destination === "ALL_SWAPS") {
-    return {
-      chatId: CLUB_ALL_SWAPS_CHAT_ID,
-      threadId: CLUB_ALL_SWAPS_MESSAGE_THREAD_ID
-        ? Number(CLUB_ALL_SWAPS_MESSAGE_THREAD_ID)
-        : null,
-    };
-  }
-
-  return {
-    chatId: CLUB_TELEGRAM_CHAT_ID,
-    threadId: CLUB_TELEGRAM_MESSAGE_THREAD_ID
-      ? Number(CLUB_TELEGRAM_MESSAGE_THREAD_ID)
-      : null,
-  };
-}
-
 // Main function to send swap messages to Telegram with rich formatting and media support
 export async function sendSwapMessage({
   symbol,
@@ -603,7 +578,6 @@ export async function sendSwapMessage({
   animationFileId,
   extraHtml = "",          // for multi-hop route info
   includeFooter = true,
-  destination = "MAIN_ALERTS",
 }) {
 try {
   const txUrl = `${EXPLORER_BASE_URL}/tx/${txHash}`;
@@ -612,14 +586,11 @@ try {
   const emoji = side === "SELL" ? "🔴" : "🟢";
   const action = side === "SELL" ? "SELL" : "BUY";
 
-// repeat emoji 10 times
-const emojiLine = emoji.repeat(10);
-
 const titleLine =
   usdValue != null
-    ? `${emojiLine}\n<b>${escapeHtml(symbol)} ${action}</b> ($${formatUsd(usdValue)})\n`
-    : `${emojiLine}\n<b>${escapeHtml(symbol)} ${action}</b>\n`;
-
+    ? `${emoji} <b>${escapeHtml(symbol)} ${action}</b> ($${formatUsd(usdValue)})\n`
+    : `${emoji} <b>${escapeHtml(symbol)} ${action}</b>\n`;
+    
   const priceLine =
     tokenPriceUsd != null && Number.isFinite(tokenPriceUsd)
       ? `💵 <b>${escapeHtml(symbol)} Price:</b> $${formatUsdPrice(tokenPriceUsd)}`
@@ -640,27 +611,15 @@ const titleLine =
     text += buildClubFooter();
   }
 
-const { chatId, threadId } = getSwapTelegramDestination(destination);
-
-if (!CLUB_TELEGRAM_BOT_TOKEN || !chatId) {
-  console.warn(`[Telegram] Swap destination not configured: ${destination}`);
-  return null;
-}
-
-const basePayload = {
-  chat_id: chatId,
-  parse_mode: "HTML",
-  disable_web_page_preview: true,
-};
-
-if (threadId != null && Number.isFinite(threadId)) {
-  basePayload.message_thread_id = threadId;
-}
-
-const shouldSendMedia = destination !== "ALL_SWAPS" && side !== "SELL";
+    const basePayload = {
+      chat_id: CLUB_TELEGRAM_CHAT_ID,
+      message_thread_id: Number(CLUB_TELEGRAM_MESSAGE_THREAD_ID),
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+    };
 
     // Animation / Photo / Text fallback (same as before)
-    if (shouldSendMedia && (animationFileId || animationUrl)) {
+    if (animationFileId || animationUrl) {
       try {
         await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendAnimation`, {
           ...basePayload,
@@ -673,7 +632,7 @@ const shouldSendMedia = destination !== "ALL_SWAPS" && side !== "SELL";
       }
     }
 
-    if (shouldSendMedia && (imageFileId || image)) {
+    if (imageFileId || image) {
       try {
         await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendPhoto`, {
           ...basePayload,
@@ -695,88 +654,6 @@ const shouldSendMedia = destination !== "ALL_SWAPS" && side !== "SELL";
   } catch (err) {
     console.error("[Telegram] sendSwapMessage error:", err.response?.data || err.message || err);
   }
-}
-
-import { readAdvertState, writeAdvertState } from "../store/advertSchedulerStore.js";
-
-const ADVERT_MESSAGES = [
-  `🌍 <b>Play Core Clash by Planet Zephyros!</b>\n\n` +
-    `Join the community: <a href="https://t.me/PlanetZephyros">t.me/PlanetZephyros</a>\n\n` +
-    `🎮 STAKE REVEAL BATTLE WIN:\n` +
-    `<a href="https://coreclash.planetzephyros.xyz">coreclash.planetzephyros.xyz</a>`,
-
-  `⚔️ <b>Ready for a Core Clash?</b>\n\n` +
-    `Pick your characters, reveal your team, and fight for victory.\n\n` +
-    `🎮 <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>\n` +
-    `🌍 <a href="https://t.me/PlanetZephyros">Join Planet Zephyros</a>`,
-
-  `🧬 <b>Planet Zephyros is growing.</b>\n\n` +
-    `NFT battles, community updates, and more are happening now.\n\n` +
-    `🌍 Telegram: <a href="https://t.me/PlanetZephyros">t.me/PlanetZephyros</a>\n` +
-    `🎮 Core Clash: <a href="https://coreclash.planetzephyros.xyz">Play now</a>`,
-];
-
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-
-function randomDelayWithinDayMs() {
-  return Math.floor(Math.random() * 24 * 60 * 60 * 1000);
-}
-
-function computeNextAdvertSendAt(from = new Date()) {
-  return new Date(
-    from.getTime() + THREE_DAYS_MS + randomDelayWithinDayMs()
-  ).toISOString();
-}
-
-export async function sendTelegramCoreClashAdvert() {
-  const state = readAdvertState();
-  const index = Number.isInteger(state.nextIndex) ? state.nextIndex : 0;
-
-  const text = ADVERT_MESSAGES[index % ADVERT_MESSAGES.length];
-
-  await sendTelegramGroupMessage(text, {
-    includeFooter: false,
-  });
-
-  writeAdvertState({
-    ...state,
-    lastSentAt: new Date().toISOString(),
-    nextIndex: (index + 1) % ADVERT_MESSAGES.length,
-    nextSendAt: computeNextAdvertSendAt(new Date()),
-  });
-}
-
-export function startCoreClashAdvertScheduler() {
-  let state = readAdvertState();
-
-  if (!state.nextSendAt) {
-    state = {
-      ...state,
-      nextSendAt: computeNextAdvertSendAt(new Date()),
-    };
-
-    writeAdvertState(state);
-  }
-
-  const scheduleNext = () => {
-    const freshState = readAdvertState();
-    const targetTime = new Date(freshState.nextSendAt).getTime();
-    const delay = Math.max(0, targetTime - Date.now());
-
-    console.log(`[TG AD] Next advert scheduled for ${freshState.nextSendAt}`);
-
-    setTimeout(async () => {
-      try {
-        await sendTelegramCoreClashAdvert();
-      } catch (err) {
-        console.error("[TG AD] Failed:", err.message || err);
-      }
-
-      scheduleNext();
-    }, delay);
-  };
-
-  scheduleNext();
 }
 
 // New function to send the weekly leaderboard message to Telegram
