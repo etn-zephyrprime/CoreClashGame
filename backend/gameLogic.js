@@ -1,5 +1,4 @@
 // gameLogic.js
-import axios from "axios";
 import { METADATA_JSON_DIR } from "./paths.js";
 import fs from "fs";
 import path from "path";
