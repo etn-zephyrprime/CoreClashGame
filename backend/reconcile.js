@@ -80,23 +80,6 @@ setInterval(discoverMissingGamesScheduled, 60 * 1000);
 
 const reconcileQueue = new PQueue({ concurrency: RPC_CONCURRENCY });
 
-function deriveWinnerFromRoundResults(game) {
-  const rounds = Array.isArray(game.roundResults) ? game.roundResults : [];
-
-  const p1Wins = rounds.filter(r => r.winner === "player1").length;
-  const p2Wins = rounds.filter(r => r.winner === "player2").length;
-
-  if (p1Wins > p2Wins) {
-    return { winner: game.player1?.toLowerCase(), tie: false };
-  }
-
-  if (p2Wins > p1Wins) {
-    return { winner: game.player2?.toLowerCase(), tie: false };
-  }
-
-  return { winner: null, tie: true };
-}
-
 export async function reconcileActiveGamesScheduled() {
   if (isCatchingUp) {
     console.log("[SKIP] Skipping reconcile while catching up");
@@ -118,24 +101,24 @@ for (const game of games) {
     Array.isArray(game.roundResults) &&
     game.roundResults.length > 0;
 
-  if (hasBothReveals && hasResults && game.cancelled === true) {
-    const derived = deriveWinnerFromRoundResults(game);
+if (hasBothReveals && hasResults && game.cancelled === true) {
+  const derived = deriveWinnerFromRoundResults(game);
 
-    game.cancelled = false;
-    game.tie = derived.tie;
-    game.winner = derived.winner;
+  game.cancelled = false;
+  game.tie = derived.tie;
+  game.winner = derived.winner;
 
-    if (derived.tie) {
-      game.backendWinner = ZERO;
-    } else if (derived.winner) {
-      game.backendWinner = derived.winner;
-    }
+  if (derived.tie) {
+    game.backendWinner = ZERO;
+  } else if (derived.winner) {
+    game.backendWinner = derived.winner;
+  }
 
-    game.settlementState = game.settled
-      ? "settled"
-      : "pending-confirmation";
+  game.settlementState = game.settled
+    ? "settled"
+    : "pending-confirmation";
 
-    dirty = true;
+  dirty = true;
 
     console.warn(`[RECONCILE][REPAIR] Fixed poisoned game ${game.id}`, {
       winner: game.winner,
@@ -335,7 +318,7 @@ if (onChain.settled) {
   } else {
     // Only cancelled if explicitly settled without winner
     if (!game.cancelled || game.backendWinner) {
-      game.cancelled = true;
+      game.cancelled = false;
       game.backendWinner = null;
       game.winner = null;
       dirty = true;
