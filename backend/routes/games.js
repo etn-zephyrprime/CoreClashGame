@@ -27,7 +27,7 @@ import { awardXp, adjustXp, XP_REWARDS } from "../utils/playerXp.js";
 import { sendTelegramGameCreated, sendTelegramGameJoined, sendTelegramReveal, sendTelegramBothRevealed,
          sendTelegramGameSettled, sendTelegramGameCancelled, formatTokenAmount } from "../utils/telegramBot.js";
 import { gameWriteContract as contract } from "../gameContract.js";
-import { deriveWinnerFromRoundResults } from "./utils/gameHelpers.js";
+import { deriveWinnerFromRoundResults } from "../utils/gameHelpers.js";
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
