@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { withLock } from "./utils/mutex.js";
 import PQueue from "p-queue";
 import { isCatchingUp } from "./eventListener.js";
+import { deriveWinnerFromRoundResults } from "./utils/gameHelpers.js";
 
 const ZERO = ethers.ZeroAddress;
 const RPC_CONCURRENCY = 5;
@@ -79,14 +80,70 @@ setInterval(discoverMissingGamesScheduled, 60 * 1000);
 
 const reconcileQueue = new PQueue({ concurrency: RPC_CONCURRENCY });
 
+function deriveWinnerFromRoundResults(game) {
+  const rounds = Array.isArray(game.roundResults) ? game.roundResults : [];
+
+  const p1Wins = rounds.filter(r => r.winner === "player1").length;
+  const p2Wins = rounds.filter(r => r.winner === "player2").length;
+
+  if (p1Wins > p2Wins) {
+    return { winner: game.player1?.toLowerCase(), tie: false };
+  }
+
+  if (p2Wins > p1Wins) {
+    return { winner: game.player2?.toLowerCase(), tie: false };
+  }
+
+  return { winner: null, tie: true };
+}
+
 export async function reconcileActiveGamesScheduled() {
   if (isCatchingUp) {
     console.log("[SKIP] Skipping reconcile while catching up");
     return;
-  }
+  } 
 
   await withLock(async () => {
     const games = readGames();
+    let dirty = false;
+
+// Repair poisoned completed games before filtering active games.
+// These were incorrectly marked cancelled even though they have real results.
+for (const game of games) {
+  const hasBothReveals =
+    !!game.player1Reveal &&
+    !!game.player2Reveal;
+
+  const hasResults =
+    Array.isArray(game.roundResults) &&
+    game.roundResults.length > 0;
+
+  if (hasBothReveals && hasResults && game.cancelled === true) {
+    const derived = deriveWinnerFromRoundResults(game);
+
+    game.cancelled = false;
+    game.tie = derived.tie;
+    game.winner = derived.winner;
+
+    if (derived.tie) {
+      game.backendWinner = ZERO;
+    } else if (derived.winner) {
+      game.backendWinner = derived.winner;
+    }
+
+    game.settlementState = game.settled
+      ? "settled"
+      : "pending-confirmation";
+
+    dirty = true;
+
+    console.warn(`[RECONCILE][REPAIR] Fixed poisoned game ${game.id}`, {
+      winner: game.winner,
+      tie: game.tie,
+      settled: game.settled,
+    });
+  }
+}
 
     // 🔥 Only reconcile unsettled + non-cancelled games
     const activeGames = games.filter(
@@ -97,8 +154,6 @@ export async function reconcileActiveGamesScheduled() {
       console.log("[RECONCILE] No active games to process");
       return;
     }
-
-    let dirty = false;
 
     await Promise.all(
       activeGames.map(game =>
@@ -123,6 +178,17 @@ if (game.player2 !== chainP2) {
 /* -----------------------------
    Settlement Sync (Chain = Truth)
 ------------------------------*/
+const hasBothReveals =
+  !!game.player1Reveal &&
+  !!game.player2Reveal;
+
+const hasResults =
+  Array.isArray(game.roundResults) &&
+  game.roundResults.length > 0;
+
+const isTie =
+  game.tie === true;
+
 if (onChain.settled) {
   if (!game.settled) {
     game.settled = true;
@@ -130,10 +196,9 @@ if (onChain.settled) {
     dirty = true;
   }
 
-const winnerAddr = await contract.backendWinner(game.id);
-const chainWinner = winnerAddr?.toLowerCase();
+  const winnerAddr = await contract.backendWinner(game.id);
+  const chainWinner = winnerAddr?.toLowerCase();
 
-  // Winner exists and is valid
   if (chainWinner && chainWinner !== ZERO) {
     if (game.backendWinner !== chainWinner) {
       game.backendWinner = chainWinner;
@@ -145,14 +210,31 @@ const chainWinner = winnerAddr?.toLowerCase();
       game.cancelled = false;
       dirty = true;
     }
-
   } else {
-    // Only mark cancelled if contract explicitly settled
-    if (!game.cancelled) {
-      game.cancelled = true;
-      game.backendWinner = null;
-      game.winner = null;
-      dirty = true;
+    // ZERO winner can mean tie, cancelled, timeout, or bad/missing backend winner.
+    // Do NOT blindly mark cancelled if the game has real revealed results.
+    if (hasBothReveals || hasResults || isTie) {
+      if (game.cancelled) {
+        game.cancelled = false;
+        dirty = true;
+      }
+
+      if (isTie) {
+        game.winner = null;
+        game.backendWinner = ZERO;
+        dirty = true;
+      }
+
+      console.warn(
+        `[RECONCILE] Game ${game.id} settled with ZERO winner, but has reveal/results. Not marking cancelled.`
+      );
+    } else {
+      if (!game.cancelled) {
+        game.cancelled = true;
+        game.backendWinner = null;
+        game.winner = null;
+        dirty = true;
+      }
     }
   }
 }
