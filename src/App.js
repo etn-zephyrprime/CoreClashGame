@@ -1734,9 +1734,17 @@ const buildTeam = (reveal) => {
 : "Unknown";
 
     const baseName = String(rawName).replace(/\s*#\d+$/i, "").trim();
-    const background = typeof backgrounds[idx] === "string" ? backgrounds[idx] : "Unknown";
-    const label = `${baseName} ${background}`;
-    const entryKey = `${baseName}||${background}`;
+const rawBackground =
+  typeof backgrounds[idx] === "string" && backgrounds[idx].trim()
+    ? backgrounds[idx].trim()
+    : "Unknown";
+
+const background = RARE_BACKGROUNDS.has(rawBackground)
+  ? rawBackground
+  : "Common";
+
+const label = `${baseName} ${background}`;
+const entryKey = `${baseName}||${background}`;
 
     return { entryKey, label };
   });
