@@ -27,6 +27,7 @@ import { awardXp, adjustXp, XP_REWARDS } from "../utils/playerXp.js";
 import { sendTelegramGameCreated, sendTelegramGameJoined, sendTelegramReveal, sendTelegramBothRevealed,
          sendTelegramGameSettled, sendTelegramGameCancelled, formatTokenAmount } from "../utils/telegramBot.js";
 import { gameWriteContract as contract } from "../gameContract.js";
+import { deriveWinnerFromRoundResults } from "./utils/gameHelpers.js";
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -785,11 +786,12 @@ if (resolvedRounds.length === 0) {
       }
 
       // Persist computation
-      game.roundResults = resolvedRounds;
-      game.tie = !!resolved.tie;
-      game.winner = resolved.winner || null;
-
-      writeGames(games);
+game.roundResults = resolvedRounds;
+game.tie = !!resolved.tie;
+game.winner = resolved.tie ? null : resolved.winner;
+game.cancelled = false;
+game.settlementState = "pending-confirmation";
+writeGames(games);
 
       console.log(`Computed results for game ${gameId}:`, {
         winner: game.winner,
@@ -854,7 +856,22 @@ router.post("/:id/post-winner", async (req, res) => {
         return;
       }
 
-      winnerAddress = game.tie ? ethers.ZeroAddress : game.winner;
+const derived = deriveWinnerFromRoundResults(game);
+
+game.tie = derived.tie;
+game.winner = derived.winner;
+game.cancelled = false;
+
+winnerAddress = game.tie ? ethers.ZeroAddress : game.winner;
+
+const zero = ethers.ZeroAddress.toLowerCase();
+
+if (!game.tie && (!winnerAddress || String(winnerAddress).toLowerCase() === zero)) {
+  res.status(500).json({
+    error: "Cannot post zero/null winner for non-tie completed game",
+  });
+  return;
+}
     });
 
     if (res.headersSent) return;
@@ -988,9 +1005,50 @@ router.post("/:id/settle-game", async (req, res) => {
 
     if (res.headersSent) return;
 
+function deriveWinnerFromRoundResults(game) {
+  const rounds = Array.isArray(game.roundResults) ? game.roundResults : [];
+
+  const p1Wins = rounds.filter(r => r.winner === "player1").length;
+  const p2Wins = rounds.filter(r => r.winner === "player2").length;
+
+  if (p1Wins > p2Wins) {
+    return { winner: game.player1?.toLowerCase(), tie: false };
+  }
+
+  if (p2Wins > p1Wins) {
+    return { winner: game.player2?.toLowerCase(), tie: false };
+  }
+
+  return { winner: null, tie: true };
+}
+
     // Ensure winner posted
     let winnerTx = null;
-    let winnerAddress = gameSnapshot.tie ? ethers.ZeroAddress : gameSnapshot.winner;
+
+if (
+  Array.isArray(gameSnapshot.roundResults) &&
+  gameSnapshot.roundResults.length > 0
+) {
+  const derived = deriveWinnerFromRoundResults(gameSnapshot);
+
+  gameSnapshot.winner = derived.winner;
+  gameSnapshot.tie = derived.tie;
+}
+
+let winnerAddress = gameSnapshot.tie
+  ? ethers.ZeroAddress
+  : gameSnapshot.winner;
+
+const zero = ethers.ZeroAddress.toLowerCase();
+
+if (
+  !gameSnapshot.tie &&
+  (!winnerAddress || String(winnerAddress).toLowerCase() === zero)
+) {
+  return res.status(500).json({
+    error: "Cannot post zero/null winner for non-tie completed game",
+  });
+}
 
     if (!gameSnapshot.backendWinner) {
       if (!adminWalletReady || !adminContract) {
