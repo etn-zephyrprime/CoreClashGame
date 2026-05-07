@@ -1739,9 +1739,17 @@ const rawBackground =
     ? backgrounds[idx].trim()
     : "Unknown";
 
-const background = RARE_BACKGROUNDS.has(rawBackground)
-  ? rawBackground
-  : "Common";
+const normalized = rawBackground.toLowerCase();
+
+const isRare = RARE_BACKGROUNDS.some(
+  (b) => b.toLowerCase() === normalized
+);
+
+const rareMatch = RARE_BACKGROUNDS.find(
+  (b) => b.toLowerCase() === normalized
+);
+
+const background = rareMatch || "Common";
 
 const label = `${baseName} ${background}`;
 const entryKey = `${baseName}||${background}`;
