@@ -1,5 +1,4 @@
 // gameLogic.js
-import axios from "axios";
 import { METADATA_JSON_DIR } from "./paths.js";
 import fs from "fs";
 import path from "path";
@@ -28,7 +27,7 @@ const addressToCollection = {
   "0x3fc7665b1f6033ff901405cddf31c2e04b8a2ab4": "VKIN",
   "0x8cfbb04c54d35e2e8471ad9040d40d73c08136f0": "VQLE",
   "0xac620b1a3de23f4eb0a69663613babf73f6c535d": "SCIONS",
-  "0x5C81a5609EaeEF7962F1D089D6343F9790387901": "EVG",
+  "0x5c81a5609eaeef7962f1d089d6343f9790387901": "EVG",
 };
 
 // Collection → faction mapping
