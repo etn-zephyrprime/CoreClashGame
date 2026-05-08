@@ -921,13 +921,12 @@ export async function sendTelegramNftSale({
 const ADVERT_MESSAGES = [
   `🎮 <b>Core Clash</b>\n\n` +
     `Ready for another battle?\n\n` +
-    `Stake, Reveal, Battle, Win with your playable cards.\n\n` +
-    `⚔️ <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>`,
+    `Stake, Reveal, Battle, Win with your playable cards.\n\n`,
 
   `🧬 <b>Mint Aether Scions</b>\n\n` +
     `Aether Scions are playable cards in Core Clash.\n\n` +
     `Build your team, test your matchups, and bring them into battle.\n\n` +
-    `🌍 <a href="https://app.electroswap.io/nfts/collection/0xAc620b1A3dE23F4EB0A69663613baBf73F6C535D">Mint / Learn More</a>`,
+    `🌍 <a href="https://app.electroswap.io/nfts/collection/0xAc620b1A3dE23F4EB0A69663613baBf73F6C535D">Mint Now</a>`,
 
   `🔥 <b>Build Your XP</b>\n\n` +
     `Keep playing Core Clash to build XP and climb the ranks.\n\n` +
@@ -943,7 +942,11 @@ function randomDelayWithinDayMs() {
 
 export async function sendZephyrosAdvertByIndex(index) {
   const text = ADVERT_MESSAGES[index % ADVERT_MESSAGES.length];
-  return sendZephyrosNftMessage(text);
+
+  return sendTelegramGroupMessage(text, {
+    skipDefaultThread: true,
+    includeFooter: true,
+  });
 }
 
 function getDateKey(date = new Date()) {
