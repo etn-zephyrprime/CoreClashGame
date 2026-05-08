@@ -23,10 +23,6 @@ import { ethers } from "ethers";
 import fs from "fs";
 import FormData from "form-data";
 import { resolveExistingNftImage } from "./nftMedia.js";
-import {
-  readAdvertState,
-  writeAdvertState,
-} from "../store/advertSchedulerStore.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ZEPHYROS_TELEGRAM_BOT_TOKEN = process.env.ZEPHYROS_TELEGRAM_BOT_TOKEN;
