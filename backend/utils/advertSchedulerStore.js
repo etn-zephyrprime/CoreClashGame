@@ -1,75 +1,67 @@
-export function startZephyrosAdvertScheduler() {
-  let state = readAdvertState();
-  const todayKey = getDateKey(new Date());
+// backend/store/advertSchedulerStore.js
+import fs from "fs";
+import path from "path";
 
-  if (!state.firstStartupSent) {
-    console.log("[TG AD] First startup → sending first advert immediately");
+const BASE_DATA_DIR =
+  process.env.DATA_DIR ||
+  process.env.RENDER_DISK_PATH ||
+  "/backend/data";
 
-    sendZephyrosAdvertByIndex(0)
-      .then(() => {
-        const fresh = readAdvertState();
-        writeAdvertState({
-          ...fresh,
-          firstStartupSent: true,
-          lastSentAt: new Date().toISOString(),
-        });
-      })
-      .catch((err) =>
-        console.error("[TG AD] Initial send failed:", err.message || err)
-      );
+const FILE = path.join(BASE_DATA_DIR, "advertScheduler.json");
+
+const DEFAULT_STATE = {
+  firstStartupSent: false,
+  scheduleDate: null,
+  dailyQueue: [],
+  lastSentAt: null,
+};
+
+export function readAdvertState() {
+  try {
+    if (!fs.existsSync(FILE)) {
+      return { ...DEFAULT_STATE };
+    }
+
+    const raw = fs.readFileSync(FILE, "utf8");
+    const parsed = JSON.parse(raw);
+
+    return {
+      ...DEFAULT_STATE,
+      ...parsed,
+      dailyQueue: Array.isArray(parsed.dailyQueue)
+        ? parsed.dailyQueue
+        : [],
+    };
+  } catch (err) {
+    console.error("[ADVERT STORE] Failed to read advert state:", err.message);
+    return { ...DEFAULT_STATE };
   }
+}
 
-  if (!state.scheduleDate || state.scheduleDate !== todayKey) {
-    state = {
+export function writeAdvertState(state) {
+  try {
+    fs.mkdirSync(path.dirname(FILE), { recursive: true });
+
+    const nextState = {
+      ...DEFAULT_STATE,
       ...state,
-      scheduleDate: todayKey,
-      dailyQueue: buildDailyAdvertQueue(new Date()),
+      dailyQueue: Array.isArray(state?.dailyQueue)
+        ? state.dailyQueue
+        : [],
     };
 
-    writeAdvertState(state);
+    fs.writeFileSync(FILE, JSON.stringify(nextState, null, 2));
+    return nextState;
+  } catch (err) {
+    console.error("[ADVERT STORE] Failed to write advert state:", err.message);
+    throw err;
   }
+}
 
-  const tick = async () => {
-    const fresh = readAdvertState();
-    const currentDateKey = getDateKey(new Date());
+export function resetAdvertState() {
+  writeAdvertState({ ...DEFAULT_STATE });
+}
 
-    if (fresh.scheduleDate !== currentDateKey) {
-      writeAdvertState({
-        ...fresh,
-        scheduleDate: currentDateKey,
-        dailyQueue: buildDailyAdvertQueue(new Date()),
-      });
-      return;
-    }
-
-    const queue = Array.isArray(fresh.dailyQueue) ? fresh.dailyQueue : [];
-    const now = Date.now();
-    let dirty = false;
-
-    for (const item of queue) {
-      if (!item.sent && new Date(item.sendAt).getTime() <= now) {
-        await sendZephyrosAdvertByIndex(item.index);
-        item.sent = true;
-        dirty = true;
-      }
-    }
-
-    if (dirty) {
-      writeAdvertState({
-        ...fresh,
-        dailyQueue: queue,
-        lastSentAt: new Date().toISOString(),
-      });
-    }
-  };
-
-  setInterval(() => {
-    tick().catch((err) =>
-      console.error("[TG AD] Daily scheduler failed:", err.message || err)
-    );
-  }, 60 * 1000);
-
-  tick().catch((err) =>
-    console.error("[TG AD] Initial scheduler tick failed:", err.message || err)
-  );
+export function getAdvertStateFilePath() {
+  return FILE;
 }
