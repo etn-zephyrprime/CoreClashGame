@@ -25,6 +25,7 @@ import { sendTelegramWeeklyLeaderboard, sendTelegramFinalWeeklyLeaderboard, send
 import { processRevealDeadlineNotifications } from "./utils/revealDeadlineNotifier.js";
 import { startNftMintListener } from "./nftMintListener.js";
 import { startNftMarketplaceListener } from "./nftMarketplaceListener.js";
+import { startZephyrosAdvertScheduler } from "./utils/telegramBot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -203,6 +204,13 @@ try {
   console.log("[SERVER] NFT marketplace listener started");
 } catch (err) {
   console.error("Failed to start NFT marketplace listener:", err);
+}
+
+try {
+  startZephyrosAdvertScheduler();
+  console.log("[SERVER] Zephyros advert scheduler started");
+} catch (err) {
+  console.error("Failed to start Zephyros advert scheduler:", err);
 }
 
 // ---------------- DEBUG ROUTE LOGGING ----------------

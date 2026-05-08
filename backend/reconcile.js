@@ -6,7 +6,7 @@ import PQueue from "p-queue";
 import { isCatchingUp } from "./eventListener.js";
 import { deriveWinnerFromRoundResults } from "./utils/gameHelpers.js";
 
-const ZERO = ethers.ZeroAddress;
+const ZERO = ethers.ZeroAddress.toLowerCase();
 const RPC_CONCURRENCY = 5;
 
 /* ================================================================
@@ -306,23 +306,41 @@ if (game.settled !== onChain.settled) {
 
 // ---- Sync winner ONLY if settled ----
 if (onChain.settled) {
-  const chainWinner = onChain.winner?.toLowerCase();
+  const winnerAddr = await contract.backendWinner(game.id);
+  const chainWinner = winnerAddr?.toLowerCase();
 
-  if (chainWinner && chainWinner !== ZERO) {
-    if (game.backendWinner !== chainWinner) {
-      game.backendWinner = chainWinner;
-      game.winner = chainWinner;
-      game.cancelled = false;
-      dirty = true;
+  const hasBothReveals = !!game.player1Reveal && !!game.player2Reveal;
+  const hasResults = Array.isArray(game.roundResults) && game.roundResults.length > 0;
+
+  if (chainWinner && chainWinner !== ZERO.toLowerCase()) {
+    game.backendWinner = chainWinner;
+    game.winner = chainWinner;
+    game.cancelled = false;
+    dirty = true;
+  } else if (hasBothReveals || hasResults) {
+    const derived = deriveWinnerFromRoundResults(game);
+
+    game.cancelled = false;
+    game.tie = derived.tie;
+    game.winner = derived.winner;
+
+    if (derived.tie) {
+      game.backendWinner = ZERO.toLowerCase();
+    } else if (derived.winner) {
+      game.backendWinner = derived.winner;
     }
+
+    dirty = true;
+
+    console.warn(`[FULL SWEEP][REPAIR] Preserved derived winner for game ${game.id}`, {
+      winner: game.winner,
+      tie: game.tie,
+    });
   } else {
-    // Only cancelled if explicitly settled without winner
-    if (!game.cancelled || game.backendWinner) {
-      game.cancelled = false;
-      game.backendWinner = null;
-      game.winner = null;
-      dirty = true;
-    }
+    game.cancelled = true;
+    game.backendWinner = null;
+    game.winner = null;
+    dirty = true;
   }
 }
 
