@@ -25,7 +25,7 @@ import { sendTelegramWeeklyLeaderboard, sendTelegramFinalWeeklyLeaderboard, send
 import { processRevealDeadlineNotifications } from "./utils/revealDeadlineNotifier.js";
 import { startNftMintListener } from "./nftMintListener.js";
 import { startNftMarketplaceListener } from "./nftMarketplaceListener.js";
-import { startZephyrosAdvertScheduler } from "./utils/telegramBot.js";
+import { startZephyrosAdvertScheduler } from "./utils/advertSchedulerStore.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
