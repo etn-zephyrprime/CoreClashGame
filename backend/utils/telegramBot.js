@@ -918,6 +918,49 @@ export async function sendTelegramNftSale({
   return sendZephyrosNftMessage(caption);
 }
 
+const ADVERT_MESSAGES = [
+  `🎮 <b>Core Clash</b>\n\n` +
+    `Ready for another battle?\n\n` +
+    `Stake, Reveal, Battle, Win with your playable cards.\n\n` +
+    `⚔️ <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>`,
+
+  `🧬 <b>Mint Aether Scions</b>\n\n` +
+    `Aether Scions are playable cards in Core Clash.\n\n` +
+    `Build your team, test your matchups, and bring them into battle.\n\n` +
+    `🌍 <a href="https://app.electroswap.io/nfts/collection/0xAc620b1A3dE23F4EB0A69663613baBf73F6C535D">Mint / Learn More</a>`,
+
+  `🔥 <b>Build Your XP</b>\n\n` +
+    `Keep playing Core Clash to build XP and climb the ranks.\n\n` +
+    `XP helps you work toward earning $CORE and <b>Guardians of Erevos</b> playable cards.\n\n` +
+    `🎮 <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>`,
+];
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+function randomDelayWithinDayMs() {
+  return Math.floor(Math.random() * ONE_DAY_MS);
+}
+
+export async function sendZephyrosAdvertByIndex(index) {
+  const text = ADVERT_MESSAGES[index % ADVERT_MESSAGES.length];
+  return sendZephyrosNftMessage(text);
+}
+
+function getDateKey(date = new Date()) {
+  return date.toISOString().split("T")[0];
+}
+
+function buildDailyAdvertQueue(date = new Date()) {
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+
+  return ADVERT_MESSAGES.map((_, index) => ({
+    index,
+    sendAt: new Date(dayStart.getTime() + randomDelayWithinDayMs()).toISOString(),
+    sent: false,
+  })).sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+}
+
 export function startZephyrosAdvertScheduler() {
   let state = readAdvertState();
   const todayKey = getDateKey(new Date());
@@ -992,49 +1035,6 @@ export function startZephyrosAdvertScheduler() {
   tick().catch((err) =>
     console.error("[TG AD] Initial scheduler tick failed:", err.message || err)
   );
-}
-
-const ADVERT_MESSAGES = [
-  `🎮 <b>Core Clash</b>\n\n` +
-    `Ready for another battle?\n\n` +
-    `Stake, Reveal, Battle, Win with your playable cards.\n\n` +
-    `⚔️ <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>`,
-
-  `🧬 <b>Mint Aether Scions</b>\n\n` +
-    `Aether Scions are playable cards in Core Clash.\n\n` +
-    `Build your team, test your matchups, and bring them into battle.\n\n` +
-    `🌍 <a href="https://app.electroswap.io/nfts/collection/0xAc620b1A3dE23F4EB0A69663613baBf73F6C535D">Mint / Learn More</a>`,
-
-  `🔥 <b>Build Your XP</b>\n\n` +
-    `Keep playing Core Clash to build XP and climb the ranks.\n\n` +
-    `XP helps you work toward earning $CORE and <b>Guardians of Erevos</b> playable cards.\n\n` +
-    `🎮 <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>`,
-];
-
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-function randomDelayWithinDayMs() {
-  return Math.floor(Math.random() * ONE_DAY_MS);
-}
-
-export async function sendZephyrosAdvertByIndex(index) {
-  const text = ADVERT_MESSAGES[index % ADVERT_MESSAGES.length];
-  return sendZephyrosNftMessage(text);
-}
-
-function getDateKey(date = new Date()) {
-  return date.toISOString().split("T")[0];
-}
-
-function buildDailyAdvertQueue(date = new Date()) {
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-
-  return ADVERT_MESSAGES.map((_, index) => ({
-    index,
-    sendAt: new Date(dayStart.getTime() + randomDelayWithinDayMs()).toISOString(),
-    sent: false,
-  })).sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
 }
 
 export {
