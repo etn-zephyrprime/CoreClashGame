@@ -32,7 +32,7 @@ const ZEPHYROS_NFT_MESSAGE_THREAD_ID = 782;
 import {
   readAdvertState,
   writeAdvertState,
-} from "../store/advertSchedulerStore.js";
+} from "../utils/advertSchedulerStore.js";
 
 // Default topic for Core Clash bot messages
 const TELEGRAM_MESSAGE_THREAD_ID = process.env.TELEGRAM_MESSAGE_THREAD_ID
