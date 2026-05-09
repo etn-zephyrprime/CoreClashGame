@@ -14,6 +14,7 @@ const DEFAULT_STATE = {
   scheduleDate: null,
   dailyQueue: [],
   lastSentAt: null,
+  lastSentIndex: null,
 };
 
 export function readAdvertState() {

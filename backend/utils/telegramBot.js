@@ -858,28 +858,36 @@ export async function sendTelegramNftMint({
   buyer,
   txHash,
   tokenURI,
+  imagePath,
 }) {
-  const caption =
+    const caption =
     `🧬 <b>${escapeHtml(collectionName)} Mint</b>\n\n` +
     `Token: <b>#${escapeHtml(tokenId)}</b>\n` +
     `Collector: <a href="${addrUrl(buyer)}">${escapeHtml(shortWallet(buyer))}</a>\n` +
     `NFT: <a href="${tokenUrl(contractAddress, tokenId)}">View NFT</a>\n` +
     `Tx: <a href="${txUrl(txHash)}">View Transaction</a>`;
 
-  const image = resolveExistingNftImage({
-    contractAddress,
-    tokenId,
-    tokenURI,
+if (imagePath && fs.existsSync(imagePath)) {
+  return sendZephyrosNftPhotoMessage({
+    caption,
+    photoPath: imagePath,
   });
+}
 
-  if (image.absolutePath) {
-    return sendZephyrosNftPhotoMessage({
-      caption,
-      photoPath: image.absolutePath,
-    });
-  }
+const image = resolveExistingNftImage({
+  contractAddress,
+  tokenId,
+  tokenURI,
+});
 
-  return sendZephyrosNftMessage(caption);
+if (image.absolutePath) {
+  return sendZephyrosNftPhotoMessage({
+    caption,
+    photoPath: image.absolutePath,
+  });
+}
+
+return sendZephyrosNftMessage(caption);
 }
 
 export async function sendTelegramNftSale({
@@ -921,7 +929,7 @@ export async function sendTelegramNftSale({
 const ADVERT_MESSAGES = [
   `🎮 <b>Core Clash</b>\n\n` +
     `Ready for another battle?\n\n` +
-    `Stake, Reveal, Battle, Win with your playable cards.\n\n`,
+    `Stake, Reveal, Battle, Win with your playable cards.`,
 
   `🧬 <b>Mint Aether Scions</b>\n\n` +
     `Aether Scions are playable cards in Core Clash.\n\n` +
@@ -930,8 +938,7 @@ const ADVERT_MESSAGES = [
 
   `🔥 <b>Build Your XP</b>\n\n` +
     `Keep playing Core Clash to build XP and climb the ranks.\n\n` +
-    `XP helps you work toward earning $CORE and <b>Guardians of Erevos</b> playable cards.\n\n` +
-    `🎮 <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>`,
+    `XP helps you work toward earning $CORE and <b>Guardians of Erevos</b> playable cards.`,
 ];
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -953,15 +960,47 @@ function getDateKey(date = new Date()) {
   return date.toISOString().split("T")[0];
 }
 
-function buildDailyAdvertQueue(date = new Date()) {
+const MIN_AD_GAP_MS = 3 * 60 * 60 * 1000;
+
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function buildDailyAdvertQueue(date = new Date(), lastSentIndex = null) {
   const dayStart = new Date(date);
   dayStart.setHours(0, 0, 0, 0);
 
-  return ADVERT_MESSAGES.map((_, index) => ({
-    index,
-    sendAt: new Date(dayStart.getTime() + randomDelayWithinDayMs()).toISOString(),
+  const dayStartMs = dayStart.getTime();
+
+  let scheduled = [];
+
+  for (let attempts = 0; attempts < 1000; attempts++) {
+    const indexes = shuffle(
+      ADVERT_MESSAGES.map((_, index) => index)
+    );
+
+    scheduled = indexes.map((index) => ({
+      index,
+      sendAtMs: dayStartMs + randomDelayWithinDayMs(),
+      sent: false,
+    })).sort((a, b) => a.sendAtMs - b.sendAtMs);
+
+    const hasGap = scheduled.every((item, idx) => {
+      if (idx === 0) return true;
+      return item.sendAtMs - scheduled[idx - 1].sendAtMs >= MIN_AD_GAP_MS;
+    });
+
+    const avoidsRepeat =
+      lastSentIndex == null || scheduled[0]?.index !== lastSentIndex;
+
+    if (hasGap && avoidsRepeat) break;
+  }
+
+  return scheduled.map((item) => ({
+    index: item.index,
+    sendAt: new Date(item.sendAtMs).toISOString(),
     sent: false,
-  })).sort((a, b) => new Date(a.sendAt) - new Date(b.sendAt));
+  }));
 }
 
 export function startZephyrosAdvertScheduler() {
@@ -978,6 +1017,7 @@ export function startZephyrosAdvertScheduler() {
           ...fresh,
           firstStartupSent: true,
           lastSentAt: new Date().toISOString(),
+          lastSentIndex: 0,
         });
       })
       .catch((err) =>
@@ -989,7 +1029,7 @@ export function startZephyrosAdvertScheduler() {
     state = {
       ...state,
       scheduleDate: todayKey,
-      dailyQueue: buildDailyAdvertQueue(new Date()),
+      dailyQueue: buildDailyAdvertQueue(new Date(), state.lastSentIndex),
     };
 
     writeAdvertState(state);
@@ -1003,20 +1043,24 @@ export function startZephyrosAdvertScheduler() {
       writeAdvertState({
         ...fresh,
         scheduleDate: currentDateKey,
-        dailyQueue: buildDailyAdvertQueue(new Date()),
+        dailyQueue: buildDailyAdvertQueue(new Date(), fresh.lastSentIndex),
       });
       return;
     }
 
     const queue = Array.isArray(fresh.dailyQueue) ? fresh.dailyQueue : [];
     const now = Date.now();
+
     let dirty = false;
+    let sentIndex = null;
 
     for (const item of queue) {
       if (!item.sent && new Date(item.sendAt).getTime() <= now) {
         await sendZephyrosAdvertByIndex(item.index);
         item.sent = true;
+        sentIndex = item.index;
         dirty = true;
+        break;
       }
     }
 
@@ -1025,6 +1069,7 @@ export function startZephyrosAdvertScheduler() {
         ...fresh,
         dailyQueue: queue,
         lastSentAt: new Date().toISOString(),
+        lastSentIndex: sentIndex,
       });
     }
   };
