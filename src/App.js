@@ -1562,6 +1562,15 @@ const isWeeklyMode = leaderboardMode === "weekly";
 const isCharacterMode = leaderboardMode === "characters";
 const isXpMode = leaderboardMode === "xp";
 
+const isXpInactive = (lastClaimed) => {
+  if (!lastClaimed) return true;
+
+  const last = new Date(lastClaimed).getTime();
+  if (Number.isNaN(last)) return true;
+
+  return Date.now() - last > 3 * 24 * 60 * 60 * 1000;
+};
+
 const leaderboard = useMemo(() => {
   const stats = {};
 
@@ -1852,29 +1861,40 @@ const renderXpLeaderboardCard = (compact = false) => (
     {xpLeaderboard.length === 0 ? (
       <p style={{ color: "#aaa" }}>No XP data yet.</p>
     ) : (
-      xpLeaderboard.map((entry, idx) => (
-        <div
-          key={entry.address}
-          style={{
-            padding: compact ? 10 : 14,
-            marginBottom: 10,
-            borderRadius: 12,
-            background: "#111",
-            border: "1px solid #333",
-            color: "#ddd",
-          }}
-        >
-          <div style={{ fontWeight: 800, color: "#18bb1a" }}>
-            #{idx + 1} {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
-          </div>
+      xpLeaderboard.map((entry, idx) => {
+        const inactive = isXpInactive(entry.lastClaimed);
 
-          <div>Level: <b>{entry.level}</b></div>
-          <div>XP: <b>{entry.xp}</b></div>
-          <div>
-            Last XP Claim: <b>{entry.lastClaimed || "Never"}</b>
+        return (
+          <div
+            key={entry.address}
+            style={{
+              padding: compact ? 10 : 14,
+              marginBottom: 10,
+              borderRadius: 12,
+              background: inactive ? "rgba(90, 0, 0, 0.35)" : "#111",
+              border: inactive ? "1px solid #ff4d4d" : "1px solid #333",
+              color: "#ddd",
+              boxShadow: inactive ? "0 0 10px rgba(255,77,77,0.18)" : "none",
+            }}
+          >
+            <div style={{ fontWeight: 800, color: inactive ? "#ff4d4d" : "#18bb1a" }}>
+              #{idx + 1} {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
+            </div>
+
+            <div>Level: <b>{entry.level}</b></div>
+            <div>XP: <b>{entry.xp}</b></div>
+            <div>
+              Last XP Claim:{" "}
+              <b>{entry.lastClaimed || "Never"}</b>
+              {inactive && (
+                <span style={{ color: "#ff4d4d", fontWeight: 800 }}>
+                  {" "}⚠ Inactive
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      ))
+        );
+      })
     )}
   </div>
 );
