@@ -858,28 +858,36 @@ export async function sendTelegramNftMint({
   buyer,
   txHash,
   tokenURI,
+  imagePath,
 }) {
-  const caption =
+    const caption =
     `🧬 <b>${escapeHtml(collectionName)} Mint</b>\n\n` +
     `Token: <b>#${escapeHtml(tokenId)}</b>\n` +
     `Collector: <a href="${addrUrl(buyer)}">${escapeHtml(shortWallet(buyer))}</a>\n` +
     `NFT: <a href="${tokenUrl(contractAddress, tokenId)}">View NFT</a>\n` +
     `Tx: <a href="${txUrl(txHash)}">View Transaction</a>`;
 
-  const image = resolveExistingNftImage({
-    contractAddress,
-    tokenId,
-    tokenURI,
+if (imagePath && fs.existsSync(imagePath)) {
+  return sendZephyrosNftPhotoMessage({
+    caption,
+    photoPath: imagePath,
   });
+}
 
-  if (image.absolutePath) {
-    return sendZephyrosNftPhotoMessage({
-      caption,
-      photoPath: image.absolutePath,
-    });
-  }
+const image = resolveExistingNftImage({
+  contractAddress,
+  tokenId,
+  tokenURI,
+});
 
-  return sendZephyrosNftMessage(caption);
+if (image.absolutePath) {
+  return sendZephyrosNftPhotoMessage({
+    caption,
+    photoPath: image.absolutePath,
+  });
+}
+
+return sendZephyrosNftMessage(caption);
 }
 
 export async function sendTelegramNftSale({
@@ -921,7 +929,7 @@ export async function sendTelegramNftSale({
 const ADVERT_MESSAGES = [
   `🎮 <b>Core Clash</b>\n\n` +
     `Ready for another battle?\n\n` +
-    `Stake, Reveal, Battle, Win with your playable cards.\n\n`,
+    `Stake, Reveal, Battle, Win with your playable cards.`,
 
   `🧬 <b>Mint Aether Scions</b>\n\n` +
     `Aether Scions are playable cards in Core Clash.\n\n` +
@@ -930,8 +938,7 @@ const ADVERT_MESSAGES = [
 
   `🔥 <b>Build Your XP</b>\n\n` +
     `Keep playing Core Clash to build XP and climb the ranks.\n\n` +
-    `XP helps you work toward earning $CORE and <b>Guardians of Erevos</b> playable cards.\n\n` +
-    `🎮 <a href="https://coreclash.planetzephyros.xyz">Play Core Clash</a>`,
+    `XP helps you work toward earning $CORE and <b>Guardians of Erevos</b> playable cards.`,
 ];
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;

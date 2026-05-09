@@ -179,14 +179,15 @@ for (const log of logs) {
       continue;
     }
 
-    await sendTelegramNftMint({
-      collectionName: collection.name,
-      contractAddress,
-      tokenId,
-      buyer: minter,
-      txHash: log.transactionHash,
-      tokenURI,
-    });
+await sendTelegramNftMint({
+  collectionName: collection.name,
+  contractAddress,
+  tokenId,
+  buyer: minter,
+  txHash: log.transactionHash,
+  tokenURI,
+  imagePath: image.absolutePath,
+});
 
     announcedMintLogs.add(key);
     processingMintLogs.delete(key);
