@@ -1615,9 +1615,14 @@ const resolveCollectionKeyFromAddress = (rawAddr) => {
 const [xpData, setXpData] = useState({ playerXp: {}, xpActions: {} });
 
 useEffect(() => {
-  fetch(`${BACKEND_URL}/xp-leaderboard`)
+  fetch(`${BACKEND_URL}/leaderboard/xp-leaderboard`)
     .then((res) => res.json())
-    .then(setXpData)
+    .then((data) => {
+      setXpData({
+        playerXp: data.playerXp || {},
+        xpActions: data.xpActions || {},
+      });
+    })
     .catch(console.error);
 }, []);
 
