@@ -37,4 +37,21 @@ router.get("/weekly", async (req, res) => {
   }
 });
 
+router.get("/xp-leaderboard", (req, res) => {
+  try {
+    const playerXp = fs.existsSync(XP_FILE)
+      ? JSON.parse(fs.readFileSync(XP_FILE, "utf8"))
+      : {};
+
+    const xpActions = fs.existsSync(XP_ACTIONS_FILE)
+      ? JSON.parse(fs.readFileSync(XP_ACTIONS_FILE, "utf8"))
+      : {};
+
+    res.json({ playerXp, xpActions });
+  } catch (err) {
+    console.error("XP leaderboard error:", err);
+    res.status(500).json({ error: "Failed to load XP leaderboard" });
+  }
+});
+
 export default router;

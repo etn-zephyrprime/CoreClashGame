@@ -1553,13 +1553,14 @@ const latestSettled = sortedSettledGames.slice(0, 10);
 const archivedSettled = sortedSettledGames.slice(10);
 
 /* ---------------- LEADERBOARD ---------------- */
-const [leaderboardMode, setLeaderboardMode] = useState("alltime"); // "alltime" | "weekly" | "characters"
+const [leaderboardMode, setLeaderboardMode] = useState("alltime"); // "alltime" | "weekly" | "characters" | "xp"
 const [showWeekly, setShowWeekly] = useState(false);
 const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
 
 const isAllTimeMode = leaderboardMode === "alltime";
 const isWeeklyMode = leaderboardMode === "weekly";
 const isCharacterMode = leaderboardMode === "characters";
+const isXpMode = leaderboardMode === "xp";
 
 const leaderboard = useMemo(() => {
   const stats = {};
@@ -1610,6 +1611,50 @@ const resolveCollectionKeyFromAddress = (rawAddr) => {
   if (addr === EVG_CONTRACT_ADDRESS.toLowerCase()) return "EVG";
   return null;
 };
+
+const [xpData, setXpData] = useState({ playerXp: {}, xpActions: {} });
+
+useEffect(() => {
+  fetch(`${BACKEND_URL}/xp-leaderboard`)
+    .then((res) => res.json())
+    .then(setXpData)
+    .catch(console.error);
+}, []);
+
+const xpLeaderboard = useMemo(() => {
+  const playerXp = xpData?.playerXp || {};
+  const xpActions = xpData?.xpActions || {};
+
+  const getLastClaim = (wallet) => {
+    const actions = xpActions[wallet];
+    if (!actions) return null;
+
+    const dates = [];
+
+    if (actions.dailyLogin?.lastClaimedDate) {
+      dates.push(actions.dailyLogin.lastClaimedDate);
+    }
+
+    if (actions.ecosystemClicks) {
+      Object.values(actions.ecosystemClicks).forEach((d) => {
+        if (d) dates.push(d);
+      });
+    }
+
+    return dates.sort().at(-1) || null;
+  };
+
+  return Object.entries(playerXp)
+    .map(([wallet, data]) => ({
+      address: wallet.toLowerCase(),
+      xp: Number(data.xp || 0),
+      level: Number(data.level || 0),
+      updatedAt: data.updatedAt || null,
+      lastClaimed: getLastClaim(wallet.toLowerCase()),
+    }))
+    .sort((a, b) => b.xp - a.xp)
+    .slice(0, 20);
+}, [xpData]);
 
 useEffect(() => {
   const loadCharacterNames = async () => {
@@ -1741,10 +1786,6 @@ const rawBackground =
 
 const normalized = rawBackground.toLowerCase();
 
-const isRare = RARE_BACKGROUNDS.some(
-  (b) => b.toLowerCase() === normalized
-);
-
 const rareMatch = RARE_BACKGROUNDS.find(
   (b) => b.toLowerCase() === normalized
 );
@@ -1786,6 +1827,52 @@ const entryKey = `${baseName}||${background}`;
       return b.played - a.played;
     });
 }, [games, characterNameMap]);
+
+
+const leaderboardButtonStyle = (active, isMobile = false, accent = "#18bb1a") => ({
+  padding: isMobile ? "8px 12px" : "9px 14px",
+  borderRadius: 999,
+  border: active ? `1px solid ${accent}` : "1px solid #333",
+  background: active ? `${accent}22` : "#111",
+  color: active ? accent : "#ddd",
+  fontSize: isMobile ? 13 : 15,
+  fontWeight: 700,
+  cursor: "pointer",
+  boxShadow: active ? `0 0 12px ${accent}2e` : "none",
+  transition: "all 0.2s ease",
+});
+
+const renderXpLeaderboardCard = (compact = false) => (
+  <div>
+    {xpLeaderboard.length === 0 ? (
+      <p style={{ color: "#aaa" }}>No XP data yet.</p>
+    ) : (
+      xpLeaderboard.map((entry, idx) => (
+        <div
+          key={entry.address}
+          style={{
+            padding: compact ? 10 : 14,
+            marginBottom: 10,
+            borderRadius: 12,
+            background: "#111",
+            border: "1px solid #333",
+            color: "#ddd",
+          }}
+        >
+          <div style={{ fontWeight: 800, color: "#18bb1a" }}>
+            #{idx + 1} {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
+          </div>
+
+          <div>Level: <b>{entry.level}</b></div>
+          <div>XP: <b>{entry.xp}</b></div>
+          <div>
+            Last XP Claim: <b>{entry.lastClaimed || "Never"}</b>
+          </div>
+        </div>
+      ))
+    )}
+  </div>
+);
 
 /* ---------------- WEEKLY LEADERBOARD (LIVE FROM games) ---------------- */
 const weeklyHistory = useMemo(() => {
@@ -1852,6 +1939,21 @@ const weeklyHistory = useMemo(() => {
 }, [games]);
 
 const weeklyLeaderboard = weeklyHistory.latest || [];
+
+const leaderboardTitle = isCharacterMode
+  ? "🏆 Character Leaderboard (Rolling 4 Weeks)"
+  : isXpMode
+  ? "⭐ XP Leaders"
+  : isWeeklyMode
+  ? `🏆 Weekly Top 3 (${weeklyHistory.week})`
+  : "🏆 All-Time Top 10";
+
+const renderActiveLeaderboard = (compact = false) =>
+  isCharacterMode
+    ? renderCharacterLeaderboardCard(compact)
+    : isXpMode
+    ? renderXpLeaderboardCard(compact)
+    : renderLeaderboardCard(compact);
 
 // Fetch weekly archive from backend on load
 useEffect(() => {
@@ -3516,142 +3618,10 @@ onClick={createGame} // <-- THIS IS REQUIRED
         </div>
       )}
 
-     {/* ---------------- LEADERBOARD SECTION ---------------- */}
+{/* ---------------- LEADERBOARD SECTION ---------------- */}
 {!isMobile && (
   <div style={{ marginBottom: 30 }}>
-<div
-  style={{
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 16,
-  }}
->
-  <button
-    type="button"
-    onClick={() => {
-      setLeaderboardMode("alltime");
-      setShowWeekly(false);
-      setShowWeeklyHistory(false);
-    }}
-    style={{
-      padding: "9px 14px",
-      borderRadius: 999,
-      border: isAllTimeMode ? "1px solid #18bb1a" : "1px solid #333",
-      background: isAllTimeMode ? "rgba(24,187,26,0.14)" : "#111",
-      color: isAllTimeMode ? "#18bb1a" : "#ddd",
-      fontSize: 15,
-      fontWeight: 700,
-      cursor: "pointer",
-      boxShadow: isAllTimeMode ? "0 0 12px rgba(24,187,26,0.18)" : "none",
-      transition: "all 0.2s ease",
-    }}
-  >
-    {isAllTimeMode ? "✓ " : ""}All-Time
-  </button>
-
-  <button
-    type="button"
-    onClick={() => {
-      setLeaderboardMode("weekly");
-      setShowWeekly(true);
-    }}
-    style={{
-      padding: "9px 14px",
-      borderRadius: 999,
-      border: isWeeklyMode ? "1px solid #18bb1a" : "1px solid #333",
-      background: isWeeklyMode ? "rgba(24,187,26,0.14)" : "#111",
-      color: isWeeklyMode ? "#18bb1a" : "#ddd",
-      fontSize: 15,
-      fontWeight: 700,
-      cursor: "pointer",
-      boxShadow: isWeeklyMode ? "0 0 12px rgba(24,187,26,0.18)" : "none",
-      transition: "all 0.2s ease",
-    }}
-  >
-    {isWeeklyMode ? "✓ " : ""}Weekly
-  </button>
-
-  <button
-    type="button"
-    onClick={() => {
-      setLeaderboardMode("characters");
-      setShowWeekly(false);
-      setShowWeeklyHistory(false);
-    }}
-    style={{
-      padding: "9px 14px",
-      borderRadius: 999,
-      border: isCharacterMode ? "1px solid #18bb1a" : "1px solid #333",
-      background: isCharacterMode ? "rgba(24,187,26,0.14)" : "#111",
-      color: isCharacterMode ? "#18bb1a" : "#ddd",
-      fontSize: 15,
-      fontWeight: 700,
-      cursor: "pointer",
-      boxShadow: isCharacterMode ? "0 0 12px rgba(24,187,26,0.18)" : "none",
-      transition: "all 0.2s ease",
-    }}
-  >
-    {isCharacterMode ? "✓ " : ""}Characters
-  </button>
-
-  {isWeeklyMode && (
-    <button
-      type="button"
-      onClick={() => setShowWeeklyHistory((prev) => !prev)}
-      style={{
-        padding: "9px 14px",
-        borderRadius: 999,
-        border: showWeeklyHistory ? "1px solid #4da3ff" : "1px solid #333",
-        background: showWeeklyHistory ? "rgba(77,163,255,0.14)" : "#111",
-        color: showWeeklyHistory ? "#4da3ff" : "#aaa",
-        fontSize: 15,
-        fontWeight: 700,
-        cursor: "pointer",
-        boxShadow: showWeeklyHistory ? "0 0 12px rgba(77,163,255,0.16)" : "none",
-        transition: "all 0.2s ease",
-      }}
-    >
-      {showWeeklyHistory ? "✓ " : ""}Prev 6 Weeks
-    </button>
-  )}
-</div>
-
-<h2
-  style={{
-    color: "#18bb1a",
-    fontWeight: "bold",
-    fontSize: 30,
-    textTransform: "uppercase",
-    textShadow: "0 0 8px #18bb1a, 0 0 16px #18bb1a",
-    marginBottom: 12,
-  }}
->
-  {isCharacterMode
-    ? "🏆 Character Leaderboard (Rolling 4 Weeks)"
-    : isWeeklyMode
-    ? `🏆 Weekly Top 3 (${weeklyHistory.week})`
-    : "🏆 All-Time Top 10"}
-</h2>
-
-{isCharacterMode
-  ? renderCharacterLeaderboardCard(false)
-  : renderLeaderboardCard(false)}
-
-{isWeeklyMode && showWeeklyHistory && renderWeeklyHistory()}
-  </div>
-)}
-
-{isMobile && activeTab === "leaderboard" && (
-  <div style={{ marginTop: 20 }}>
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 8,
-        marginBottom: 12,
-      }}
-    >
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
       <button
         type="button"
         onClick={() => {
@@ -3659,18 +3629,7 @@ onClick={createGame} // <-- THIS IS REQUIRED
           setShowWeekly(false);
           setShowWeeklyHistory(false);
         }}
-        style={{
-          padding: "8px 12px",
-          borderRadius: 999,
-          border: isAllTimeMode ? "1px solid #18bb1a" : "1px solid #333",
-          background: isAllTimeMode ? "rgba(24,187,26,0.14)" : "#111",
-          color: isAllTimeMode ? "#18bb1a" : "#ddd",
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: "pointer",
-          boxShadow: isAllTimeMode ? "0 0 10px rgba(24,187,26,0.18)" : "none",
-          transition: "all 0.2s ease",
-        }}
+        style={leaderboardButtonStyle(isAllTimeMode)}
       >
         {isAllTimeMode ? "✓ " : ""}All-Time
       </button>
@@ -3680,19 +3639,9 @@ onClick={createGame} // <-- THIS IS REQUIRED
         onClick={() => {
           setLeaderboardMode("weekly");
           setShowWeekly(true);
+          setShowWeeklyHistory(false);
         }}
-        style={{
-          padding: "8px 12px",
-          borderRadius: 999,
-          border: isWeeklyMode ? "1px solid #18bb1a" : "1px solid #333",
-          background: isWeeklyMode ? "rgba(24,187,26,0.14)" : "#111",
-          color: isWeeklyMode ? "#18bb1a" : "#ddd",
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: "pointer",
-          boxShadow: isWeeklyMode ? "0 0 10px rgba(24,187,26,0.18)" : "none",
-          transition: "all 0.2s ease",
-        }}
+        style={leaderboardButtonStyle(isWeeklyMode)}
       >
         {isWeeklyMode ? "✓ " : ""}Weekly
       </button>
@@ -3704,38 +3653,108 @@ onClick={createGame} // <-- THIS IS REQUIRED
           setShowWeekly(false);
           setShowWeeklyHistory(false);
         }}
-        style={{
-          padding: "8px 12px",
-          borderRadius: 999,
-          border: isCharacterMode ? "1px solid #18bb1a" : "1px solid #333",
-          background: isCharacterMode ? "rgba(24,187,26,0.14)" : "#111",
-          color: isCharacterMode ? "#18bb1a" : "#ddd",
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: "pointer",
-          boxShadow: isCharacterMode ? "0 0 10px rgba(24,187,26,0.18)" : "none",
-          transition: "all 0.2s ease",
-        }}
+        style={leaderboardButtonStyle(isCharacterMode)}
       >
         {isCharacterMode ? "✓ " : ""}Characters
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setLeaderboardMode("xp");
+          setShowWeekly(false);
+          setShowWeeklyHistory(false);
+        }}
+        style={leaderboardButtonStyle(isXpMode)}
+      >
+        {isXpMode ? "✓ " : ""}XP
       </button>
 
       {isWeeklyMode && (
         <button
           type="button"
           onClick={() => setShowWeeklyHistory((prev) => !prev)}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 999,
-            border: showWeeklyHistory ? "1px solid #4da3ff" : "1px solid #333",
-            background: showWeeklyHistory ? "rgba(77,163,255,0.14)" : "#111",
-            color: showWeeklyHistory ? "#4da3ff" : "#aaa",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-            boxShadow: showWeeklyHistory ? "0 0 10px rgba(77,163,255,0.16)" : "none",
-            transition: "all 0.2s ease",
-          }}
+          style={leaderboardButtonStyle(showWeeklyHistory, false, "#4da3ff")}
+        >
+          {showWeeklyHistory ? "✓ " : ""}Prev 6 Weeks
+        </button>
+      )}
+    </div>
+
+    <h2
+      style={{
+        color: "#18bb1a",
+        fontWeight: "bold",
+        fontSize: 30,
+        textTransform: "uppercase",
+        textShadow: "0 0 8px #18bb1a, 0 0 16px #18bb1a",
+        marginBottom: 12,
+      }}
+    >
+      {leaderboardTitle}
+    </h2>
+
+    {renderActiveLeaderboard(false)}
+    {isWeeklyMode && showWeeklyHistory && renderWeeklyHistory()}
+  </div>
+)}
+
+{isMobile && activeTab === "leaderboard" && (
+  <div style={{ marginTop: 20 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+      <button
+        type="button"
+        onClick={() => {
+          setLeaderboardMode("alltime");
+          setShowWeekly(false);
+          setShowWeeklyHistory(false);
+        }}
+        style={leaderboardButtonStyle(isAllTimeMode, true)}
+      >
+        {isAllTimeMode ? "✓ " : ""}All-Time
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setLeaderboardMode("weekly");
+          setShowWeekly(true);
+          setShowWeeklyHistory(false);
+        }}
+        style={leaderboardButtonStyle(isWeeklyMode, true)}
+      >
+        {isWeeklyMode ? "✓ " : ""}Weekly
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setLeaderboardMode("characters");
+          setShowWeekly(false);
+          setShowWeeklyHistory(false);
+        }}
+        style={leaderboardButtonStyle(isCharacterMode, true)}
+      >
+        {isCharacterMode ? "✓ " : ""}Characters
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setLeaderboardMode("xp");
+          setShowWeekly(false);
+          setShowWeeklyHistory(false);
+        }}
+        style={leaderboardButtonStyle(isXpMode, true)}
+      >
+        {isXpMode ? "✓ " : ""}XP
+      </button>
+
+      {isWeeklyMode && (
+        <button
+          type="button"
+          onClick={() => setShowWeeklyHistory((prev) => !prev)}
+          style={leaderboardButtonStyle(showWeeklyHistory, true, "#4da3ff")}
         >
           {showWeeklyHistory ? "✓ " : ""}Prev 6 Weeks
         </button>
@@ -3752,17 +3771,10 @@ onClick={createGame} // <-- THIS IS REQUIRED
         marginBottom: 12,
       }}
     >
-      {isCharacterMode
-        ? "🏆 Character Leaderboard (Rolling 4 Weeks)"
-        : isWeeklyMode
-        ? `🏆 Weekly Top 3 (${weeklyHistory.week})`
-        : "🏆 All-Time Top 10"}
+      {leaderboardTitle}
     </h2>
 
-    {isCharacterMode
-      ? renderCharacterLeaderboardCard(true)
-      : renderLeaderboardCard(true)}
-
+    {renderActiveLeaderboard(true)}
     {isWeeklyMode && showWeeklyHistory && renderWeeklyHistory()}
   </div>
 )}
@@ -3795,6 +3807,7 @@ onClick={createGame} // <-- THIS IS REQUIRED
           {/* SETTLED */}
           {(!isMobile || activeTab === "settled") && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
 <div
   style={{
     display: "flex",
@@ -3901,7 +3914,7 @@ onClick={createGame} // <-- THIS IS REQUIRED
         </div>
       )}
     </div>
-
+    
 <div
   style={{
     marginTop: 50,
