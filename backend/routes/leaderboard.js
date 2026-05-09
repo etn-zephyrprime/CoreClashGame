@@ -1,8 +1,19 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
+
 import {
   saveWeeklyLeaderboard,
   getWeeklyLeaderboardsSorted,
 } from "../store/weeklyLeaderboardStore.js";
+
+const DATA_DIR =
+  process.env.DATA_DIR ||
+  process.env.RENDER_DISK_PATH ||
+  "/backend/data";
+
+const XP_FILE = path.join(DATA_DIR, "playerXp.json");
+const XP_ACTIONS_FILE = path.join(DATA_DIR, "xpActions.json");
 
 const router = express.Router();
 
