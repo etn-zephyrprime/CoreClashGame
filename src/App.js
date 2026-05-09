@@ -1619,7 +1619,7 @@ useEffect(() => {
     .then((res) => res.json())
     .then(setXpData)
     .catch(console.error);
-}, [BACKEND_URL]);
+}, []);
 
 const xpLeaderboard = useMemo(() => {
   const playerXp = xpData?.playerXp || {};
