@@ -5,6 +5,13 @@ import {
   ensureDataPaths,
 } from "../backend/paths.js";
 
+const COLLECTION_IMAGE_FORMATS = {
+  EVG: "webp",
+  VKIN: "png",
+  VQLE: "png",
+  SCIONS: "png",
+};
+
 function parseSimpleCSV(content) {
   const lines = content.split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return [];
@@ -49,9 +56,13 @@ export async function checkFrontendMapping() {
 
     if (!mapping[collection]) mapping[collection] = {};
 
-const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+const collectionKey = collection.trim();
 
-mapping[collection][tokenId] = {
+if (!mapping[collectionKey]) mapping[collectionKey] = {};
+
+const format = COLLECTION_IMAGE_FORMATS[collectionKey] || "png";
+
+mapping[collectionKey][tokenId] = {
   token_uri: tokenURI.trim(),
   image_file: (
     imageFile ||

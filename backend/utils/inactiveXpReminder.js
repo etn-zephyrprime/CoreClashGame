@@ -125,10 +125,10 @@ function buildInactiveXpMessage(reminders) {
 
 const footer =
   maxStage === 1
-    ? "🟡 <b>Stay active and keep earning XP.</b>"
+    ? "<b>Stay active and keep earning XP.</b>"
     : maxStage === 2
-    ? "🟠 <b>A gentle nudge to jump back in and keep your XP moving.</b>"
-    : "🔴 <b>Still inactive — log in when you can, claim XP, and keep your Core Clash progress alive.</b>";
+    ? "<b>A gentle nudge to jump back in and keep things moving.</b>"
+    : "<b>Still inactive — log in, claim XP, and keep your progress going.</b>";
 
 return (
   `⏳ <b>XP Activity Check-In</b>\n\n` +
