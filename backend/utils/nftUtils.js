@@ -1,26 +1,79 @@
 import { ethers } from "ethers";
-import { RPC_URL, VKIN_CONTRACT_ADDRESS, VQLE_CONTRACT_ADDRESS } from "../config.js";
-import VKIN_ABI from "../../src/abis/VKINABI.json" with { type: "json" };
-import VQLE_ABI from "../../src/abis/VQLEABI.json" with { type: "json" };
-import SCIONS_ABI from "../../src/abis/SCIONSABI.json" with { type: "json" };
-import EVG_ABI from "../../src/abis/EVGABI.json" with { type: "json" };
 
-const provider = new ethers.JsonRpcProvider(RPC_URL);
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const delay = ms => new Promise(r => setTimeout(r, ms));
+const OWNER_SCAN_DELAY_MS = 500;
+
+function isRateLimitError(err) {
+  const text = JSON.stringify(err || {}).toLowerCase();
+  const message = String(err?.message || "").toLowerCase();
+
+  return (
+    message.includes("rate limit") ||
+    message.includes("too many requests") ||
+    message.includes("-32090") ||
+    text.includes("rate limit") ||
+    text.includes("too many requests") ||
+    text.includes("-32090")
+  );
+}
+
+async function rpcCallWithRetry(fn, label, attempts = 5) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isRateLimitError(err) || i === attempts - 1) {
+        throw err;
+      }
+
+      const waitMs = 10_000 * (i + 1);
+      console.warn(
+        `[RPC RATE LIMIT] ${label} failed. Retrying in ${waitMs / 1000}s...`
+      );
+
+      await delay(waitMs);
+    }
+  }
+}
+
+async function safeOwnerOf(contract, tokenId, collection) {
+  try {
+    return await rpcCallWithRetry(
+      () => contract.ownerOf(BigInt(tokenId)),
+      `${collection}.ownerOf(${tokenId})`
+    );
+  } catch (err) {
+    // ownerOf can revert for nonexistent/burned tokens.
+    // Only throw if this was a rate-limit style failure after retries.
+    if (isRateLimitError(err)) {
+      throw err;
+    }
+
+    return null;
+  }
+}
 
 export async function fetchOwnedTokenIds(contract, wallet, collection) {
   console.log("fetchOwnedTokenIds called:", { wallet, collection });
 
-  const tokenIds = [];
-  const walletLc = wallet.toLowerCase();
+  if (!wallet || !ethers.isAddress(wallet)) {
+    throw new Error(`Invalid wallet address: ${wallet}`);
+  }
 
   if (!["VKIN", "VQLE", "SCIONS", "EVG"].includes(collection)) {
     throw new Error(`Unknown collection: ${collection}`);
   }
 
+  const tokenIds = [];
+  const walletLc = wallet.toLowerCase();
+
   if (collection === "VKIN") {
-    const rawBalance = await contract.balanceOf(wallet);
+    const rawBalance = await rpcCallWithRetry(
+      () => contract.balanceOf(wallet),
+      `${collection}.balanceOf(${wallet})`
+    );
+
     const balance = Number(rawBalance);
 
     if (!Number.isInteger(balance) || balance < 0) {
@@ -30,31 +83,38 @@ export async function fetchOwnedTokenIds(contract, wallet, collection) {
     console.log(`${collection} balance: ${balance}`);
 
     for (let i = 0; i < balance; i++) {
-      await delay(200);
-      try {
-        const tokenId = await contract.tokenOfOwnerByIndex(wallet, i);
-        tokenIds.push(tokenId.toString());
-      } catch (err) {
-        console.warn(`Failed ${collection} index ${i}: ${err.message}`);
-      }
+      await delay(OWNER_SCAN_DELAY_MS);
+
+      const tokenId = await rpcCallWithRetry(
+        () => contract.tokenOfOwnerByIndex(wallet, i),
+        `${collection}.tokenOfOwnerByIndex(${wallet}, ${i})`
+      );
+
+      tokenIds.push(tokenId.toString());
     }
-  } else if (collection === "VQLE") {
+  }
+
+  if (collection === "VQLE") {
     const MAX_TOKEN_ID = 30;
     console.log(`Scanning VQLE 1 to ${MAX_TOKEN_ID}`);
 
-    for (let t = 1; t <= MAX_TOKEN_ID; t++) {
-      await delay(200);
-      try {
-        const owner = await contract.ownerOf(BigInt(t));
-        if (owner.toLowerCase() === walletLc) {
-          tokenIds.push(t.toString());
-        }
-      } catch {
-        continue;
+    for (let tokenId = 1; tokenId <= MAX_TOKEN_ID; tokenId++) {
+      await delay(OWNER_SCAN_DELAY_MS);
+
+      const owner = await safeOwnerOf(contract, tokenId, collection);
+
+      if (owner && owner.toLowerCase() === walletLc) {
+        tokenIds.push(String(tokenId));
       }
     }
-  } else if (collection === "SCIONS") {
-    const rawTotalSupply = await contract.totalSupply();
+  }
+
+  if (collection === "SCIONS") {
+    const rawTotalSupply = await rpcCallWithRetry(
+      () => contract.totalSupply(),
+      `SCIONS.totalSupply()`
+    );
+
     const totalSupply = Number(rawTotalSupply);
 
     if (!Number.isInteger(totalSupply) || totalSupply < 0) {
@@ -63,30 +123,28 @@ export async function fetchOwnedTokenIds(contract, wallet, collection) {
 
     console.log(`Scanning SCIONS 1 to ${totalSupply}`);
 
-    for (let t = 1; t <= totalSupply; t++) {
-      await delay(200);
-      try {
-        const owner = await contract.ownerOf(BigInt(t));
-        if (owner.toLowerCase() === walletLc) {
-          tokenIds.push(t.toString());
-        }
-      } catch (err) {
-        continue;
+    for (let tokenId = 1; tokenId <= totalSupply; tokenId++) {
+      await delay(OWNER_SCAN_DELAY_MS);
+
+      const owner = await safeOwnerOf(contract, tokenId, collection);
+
+      if (owner && owner.toLowerCase() === walletLc) {
+        tokenIds.push(String(tokenId));
       }
     }
-  } else if (collection === "EVG") {
+  }
+
+  if (collection === "EVG") {
     const MAX_TOKEN_ID = 1000;
     console.log(`Scanning EVG 1 to ${MAX_TOKEN_ID}`);
 
-    for (let t = 1; t <= MAX_TOKEN_ID; t++) {
-      await delay(200);
-      try {
-        const owner = await contract.ownerOf(BigInt(t));
-        if (owner.toLowerCase() === walletLc) {
-          tokenIds.push(t.toString());
-        }
-      } catch {
-        continue;
+    for (let tokenId = 1; tokenId <= MAX_TOKEN_ID; tokenId++) {
+      await delay(OWNER_SCAN_DELAY_MS);
+
+      const owner = await safeOwnerOf(contract, tokenId, collection);
+
+      if (owner && owner.toLowerCase() === walletLc) {
+        tokenIds.push(String(tokenId));
       }
     }
   }

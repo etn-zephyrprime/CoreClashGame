@@ -107,10 +107,17 @@ router.post("/force-cache/:wallet", async (req, res) => {
   try {
     const cache = readOwnerCache();
 
-    if (cache[wallet]) {
-      console.log("Cache already exists — skipping scan");
-      return res.json({ success: true, alreadyCached: true });
-    }
+const existing = cache[wallet] || {};
+const complete =
+  Array.isArray(existing.VKIN) &&
+  Array.isArray(existing.VQLE) &&
+  Array.isArray(existing.SCIONS) &&
+  Array.isArray(existing.EVG);
+
+if (complete) {
+  console.log("Complete cache already exists — skipping scan");
+  return res.json({ success: true, alreadyCached: true });
+}
 
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const vkin = new ethers.Contract(VKIN_CONTRACT_ADDRESS, VKIN_ABI, provider);
@@ -151,21 +158,22 @@ router.get("/owned/:wallet", async (req, res) => {
 const cache = readOwnerCache();
 let walletCache = cache[wallet] || {};
 
-walletCache = {
-  VKIN: Array.isArray(walletCache.VKIN) ? walletCache.VKIN : [],
-  VQLE: Array.isArray(walletCache.VQLE) ? walletCache.VQLE : [],
-  SCIONS: Array.isArray(walletCache.SCIONS) ? walletCache.SCIONS : [],
-  EVG: Array.isArray(walletCache.EVG) ? walletCache.EVG : [],
-};
+const hasCachedCollection = (collection) =>
+  Object.prototype.hasOwnProperty.call(walletCache, collection) &&
+  Array.isArray(walletCache[collection]);
 
-  // Force scan if cache is empty
-const shouldScanVKIN = !Array.isArray(walletCache.VKIN) || walletCache.VKIN.length === 0;
-const shouldScanVQLE = !Array.isArray(walletCache.VQLE) || walletCache.VQLE.length === 0;
-const shouldScanSCIONS = !Array.isArray(walletCache.SCIONS) || walletCache.SCIONS.length === 0;
-const shouldScanEVG = !Array.isArray(walletCache.EVG) || walletCache.EVG.length === 0;
+const shouldScanVKIN = !hasCachedCollection("VKIN");
+const shouldScanVQLE = !hasCachedCollection("VQLE");
+const shouldScanSCIONS = !hasCachedCollection("SCIONS");
+const shouldScanEVG = !hasCachedCollection("EVG");
 
-if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS, shouldScanEVG) {
-  console.log("Partial/empty cache — scanning missing collections for", wallet);
+if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS || shouldScanEVG) {
+  console.log("Partial cache — scanning missing collections for", wallet, {
+    shouldScanVKIN,
+    shouldScanVQLE,
+    shouldScanSCIONS,
+    shouldScanEVG,
+  });
 
   try {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -174,40 +182,47 @@ if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS, shouldScanEVG) {
     const scions = new ethers.Contract(SCIONS_CONTRACT_ADDRESS, SCIONS_ABI, provider);
     const evg = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVG_ABI, provider);
 
+    const updatedWalletCache = { ...walletCache };
+
     if (shouldScanVKIN) {
       console.log("Scanning VKIN...");
-      walletCache.VKIN = await fetchOwnedTokenIds(vkin, wallet, "VKIN");
+      updatedWalletCache.VKIN = await fetchOwnedTokenIds(vkin, wallet, "VKIN");
     }
 
     if (shouldScanVQLE) {
       console.log("Scanning VQLE...");
-      walletCache.VQLE = await fetchOwnedTokenIds(vqle, wallet, "VQLE");
+      updatedWalletCache.VQLE = await fetchOwnedTokenIds(vqle, wallet, "VQLE");
     }
 
     if (shouldScanSCIONS) {
       console.log("Scanning SCIONS...");
-      walletCache.SCIONS = await fetchOwnedTokenIds(scions, wallet, "SCIONS");
+      updatedWalletCache.SCIONS = await fetchOwnedTokenIds(scions, wallet, "SCIONS");
     }
 
     if (shouldScanEVG) {
       console.log("Scanning EVG...");
-      walletCache.EVG = await fetchOwnedTokenIds(evg, wallet, "EVG");
+      updatedWalletCache.EVG = await fetchOwnedTokenIds(evg, wallet, "EVG");
     }
 
+    walletCache = updatedWalletCache;
     cache[wallet] = walletCache;
     writeOwnerCache(cache);
 
     console.log(
-      `Cache updated: ${walletCache.VKIN.length} VKIN, ${walletCache.VQLE.length} VQLE, ${walletCache.SCIONS.length} SCIONS, ${walletCache.EVG.length} EVG`
+      `Cache updated: ${(walletCache.VKIN || []).length} VKIN, ${(walletCache.VQLE || []).length} VQLE, ${(walletCache.SCIONS || []).length} SCIONS, ${(walletCache.EVG || []).length} EVG`
     );
   } catch (err) {
     console.error("On-chain scan failed:", err.message);
-    return res.status(500).json({ error: err.message });
+
+    return res.status(503).json({
+      error: "Ownership scan temporarily failed or was rate limited. Please try again shortly.",
+      detail: err.message,
+    });
   }
 } else {
   console.log("Cache hit — using cached data");
 }
-  
+
   // Enrich and return (your existing code)
 // After cache fill or cache hit
 const liveMapping = readMapping();
