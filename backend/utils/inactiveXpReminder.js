@@ -77,16 +77,16 @@ function getStageStyle(stage) {
   if (stage === 1) {
     return {
       icon: "🟡",
-      label: "Cooling off",
-      detail: "3+ days",
+      label: "Taking a break",
+      detail: "3+ days inactive",
     };
   }
 
   if (stage === 2) {
     return {
       icon: "🟠",
-      label: "Needs a nudge",
-      detail: "6+ days",
+      label: "Come back soon",
+      detail: "6+ days inactive",
     };
   }
 
@@ -94,14 +94,14 @@ function getStageStyle(stage) {
     return {
       icon: "🔴",
       label: "Falling behind",
-      detail: "9+ days",
+      detail: "9+ days inactive",
     };
   }
 
   return {
     icon: "⚪",
     label: "Unknown",
-    detail: "",
+    detail: "Unknown inactive status",
   };
 }
 
@@ -222,7 +222,7 @@ for (const wallet of Object.keys(playerXp)) {
     };
     continue;
   }
-  
+
 // First startup/bootstrap:
 // list every currently inactive wallet, but reset their reminder countdown from now.
 if (isFirstRun && typeof stage === "number" && stage >= 1) {
