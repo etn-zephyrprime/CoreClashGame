@@ -77,16 +77,16 @@ function getStageStyle(stage) {
   if (stage === 1) {
     return {
       icon: "🟡",
-      label: "Cooling off",
-      detail: "3+ days",
+      label: "Taking a break",
+      detail: "3+ days inactive",
     };
   }
 
   if (stage === 2) {
     return {
       icon: "🟠",
-      label: "Needs a nudge",
-      detail: "6+ days",
+      label: "Come back soon",
+      detail: "6+ days inactive",
     };
   }
 
@@ -94,14 +94,14 @@ function getStageStyle(stage) {
     return {
       icon: "🔴",
       label: "Falling behind",
-      detail: "9+ days",
+      detail: "9+ days inactive",
     };
   }
 
   return {
     icon: "⚪",
     label: "Unknown",
-    detail: "",
+    detail: "Unknown inactive status",
   };
 }
 
@@ -125,10 +125,10 @@ function buildInactiveXpMessage(reminders) {
 
 const footer =
   maxStage === 1
-    ? "🟡 <b>Stay active and keep earning XP.</b>"
+    ? "<b>Stay active and keep earning XP.</b>"
     : maxStage === 2
-    ? "🟠 <b>A gentle nudge to jump back in and keep your XP moving.</b>"
-    : "🔴 <b>Still inactive — log in when you can, claim XP, and keep your Core Clash progress alive.</b>";
+    ? "<b>A gentle nudge to jump back in and keep things moving.</b>"
+    : "<b>Still inactive — log in, claim XP, and keep your progress going.</b>";
 
 return (
   `⏳ <b>XP Activity Check-In</b>\n\n` +
@@ -222,7 +222,7 @@ for (const wallet of Object.keys(playerXp)) {
     };
     continue;
   }
-  
+
 // First startup/bootstrap:
 // list every currently inactive wallet, but reset their reminder countdown from now.
 if (isFirstRun && typeof stage === "number" && stage >= 1) {
