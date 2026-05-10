@@ -154,55 +154,75 @@ const lastSentAt = state.lastSentAt
   : 0;
 
 const nowTime = Date.now();
-
 const isTwoPmUtc = new Date().getUTCHours() === 14;
 
 const canSend =
   isFirstRun ||
   (nowTime - lastSentAt >= SEND_INTERVAL_MS && isTwoPmUtc);
 
-  for (const wallet of Object.keys(playerXp)) {
-    const walletLc = wallet.toLowerCase();
+for (const wallet of Object.keys(playerXp)) {
+  const walletLc = wallet.toLowerCase();
 
-    if (
-      !ethers.isAddress(walletLc) ||
-      walletLc === ethers.ZeroAddress.toLowerCase()
-    ) {
-      continue;
-    }
+  if (
+    !ethers.isAddress(walletLc) ||
+    walletLc === ethers.ZeroAddress.toLowerCase()
+  ) {
+    continue;
+  }
 
-    const lastActivity = getLastXpActivityDate(walletLc, xpActions, playerXp);
-    if (!lastActivity) continue;
+  const lastActivity = getLastXpActivityDate(walletLc, xpActions, playerXp);
+  if (!lastActivity) continue;
 
-    const daysInactive = Math.floor(
-      (now - lastActivity.getTime()) / ONE_DAY_MS
-    );
+  const daysInactive = Math.floor(
+    (now - lastActivity.getTime()) / ONE_DAY_MS
+  );
 
-    const stage = getInactiveStage(daysInactive);
+  const existing = nextWalletState[walletLc] || {
+    reminderStage: 0,
+    dormant: false,
+  };
 
-    const existing = nextWalletState[walletLc] || {
-      reminderStage: 0,
+  // Bootstrap mode:
+  // everyone already inactive starts from stage 1, no matter how old their inactivity is.
+  if (isFirstRun && daysInactive >= 3) {
+    remindersToSend.push({
+      wallet: walletLc,
+      daysInactive,
+      stage: 1,
+    });
+
+    nextWalletState[walletLc] = {
+      ...existing,
+      reminderStage: 1,
       dormant: false,
+      firstInactiveSeenAt: new Date().toISOString(),
+      lastReminderAt: new Date().toISOString(),
+      lastDaysInactive: daysInactive,
     };
 
-    // Active again — clear reminder state.
-    if (stage === 0) {
-      delete nextWalletState[walletLc];
-      continue;
-    }
+    continue;
+  }
 
-    // Dormant — stop reminders after final stage.
-    if (stage === "dormant") {
-      nextWalletState[walletLc] = {
-        ...existing,
-        reminderStage: 3,
-        dormant: true,
-        dormantAt: existing.dormantAt || new Date().toISOString(),
-        lastDaysInactive: daysInactive,
-      };
-      continue;
-    }
+  const stage = getInactiveStage(daysInactive);
 
+  // Active again — clear reminder state.
+  if (stage === 0) {
+    delete nextWalletState[walletLc];
+    continue;
+  }
+
+  // Dormant — stop reminders after final stage.
+  if (stage === "dormant") {
+    nextWalletState[walletLc] = {
+      ...existing,
+      reminderStage: 3,
+      dormant: true,
+      dormantAt: existing.dormantAt || new Date().toISOString(),
+      lastDaysInactive: daysInactive,
+    };
+    continue;
+  }
+  
 // First startup/bootstrap:
 // list every currently inactive wallet, but reset their reminder countdown from now.
 if (isFirstRun && typeof stage === "number" && stage >= 1) {
