@@ -147,7 +147,19 @@ export async function runInactiveXpReminderCheck() {
   const nextWalletState = { ...(state.wallets || {}) };
   const remindersToSend = [];
 
-  const isFirstRun = !state.bootstrappedAt;
+const isFirstRun = !state.bootstrappedAt;
+
+const lastSentAt = state.lastSentAt
+  ? new Date(state.lastSentAt).getTime()
+  : 0;
+
+const nowTime = Date.now();
+
+const isTwoPmUtc = new Date().getUTCHours() === 14;
+
+const canSend =
+  isFirstRun ||
+  (nowTime - lastSentAt >= SEND_INTERVAL_MS && isTwoPmUtc);
 
   for (const wallet of Object.keys(playerXp)) {
     const walletLc = wallet.toLowerCase();
@@ -231,16 +243,6 @@ if ((existing.reminderStage || 0) < stage) {
 }
   }
 
-const lastSentAt = state.lastSentAt
-  ? new Date(state.lastSentAt).getTime()
-  : 0;
-
-const nowTime = Date.now();
-const isTime = isTwoPmUtcNow();
-const canSend =
-  nowTime - lastSentAt >= SEND_INTERVAL_MS &&
-  isTime;
-
 if (remindersToSend.length > 0 && canSend) {
   await sendTelegramGroupMessage(buildInactiveXpMessage(remindersToSend), {
     skipDefaultThread: true,
@@ -261,7 +263,9 @@ writeInactiveXpReminderState({
   ...state,
   bootstrappedAt: state.bootstrappedAt || new Date().toISOString(),
   lastRunAt: new Date().toISOString(),
-  lastSentAt: state.lastSentAt,
+  lastSentAt: remindersToSend.length > 0 && canSend
+    ? new Date().toISOString()
+    : state.lastSentAt,
   wallets: nextWalletState,
 });
 
