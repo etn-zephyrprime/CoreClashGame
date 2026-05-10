@@ -26,6 +26,7 @@ import { processRevealDeadlineNotifications } from "./utils/revealDeadlineNotifi
 import { startNftMintListener } from "./nftMintListener.js";
 import { startNftMarketplaceListener } from "./nftMarketplaceListener.js";
 import { startZephyrosAdvertScheduler } from "./utils/telegramBot.js";
+import { startInactiveXpReminderScheduler } from "./utils/inactiveXpReminder.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -211,6 +212,13 @@ try {
   console.log("[SERVER] Zephyros advert scheduler started");
 } catch (err) {
   console.error("Failed to start Zephyros advert scheduler:", err);
+}
+
+try {
+  startInactiveXpReminderScheduler();
+  console.log("[SERVER] Inactive XP reminder scheduler started");
+} catch (err) {
+  console.error("Failed to start inactive XP reminder scheduler:", err);
 }
 
 // ---------------- DEBUG ROUTE LOGGING ----------------
