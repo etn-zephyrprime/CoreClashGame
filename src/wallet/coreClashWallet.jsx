@@ -97,7 +97,7 @@ const ensureCorrectNetwork = useCallback(async () => {
   const network = await provider.getNetwork();
   const chainId = Number(network.chainId);
 
-  if (chainId !== ELECTRONEUM_CHAIN_ID) {
+  if (chainId !== CHAIN_ID) {
     await appKitModal.switchNetwork(electroneum);
   }
 }, [isConnected, walletProvider, provider]);
