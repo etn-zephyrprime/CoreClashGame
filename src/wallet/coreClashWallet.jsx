@@ -1,17 +1,26 @@
 import React, { useEffect, useMemo } from "react";
 import { ethers } from "ethers";
-import { createAppKit, useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from "@reown/appkit/react";
+import {
+  createAppKit,
+  useAppKit,
+  useAppKitAccount,
+  useAppKitProvider,
+  useDisconnect,
+} from "@reown/appkit/react";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
 import { defineChain } from "@reown/appkit/networks";
-import { RPC_URL, ELECTRONEUM_CHAIN_ID, EXPLORER_BASE_URL } from "../config.js";
 
-export const ELECTRONEUM_CHAIN_ID = ELECTRONEUM_CHAIN_ID;
-export const RPC_URL = RPC_URL;
-export const EXPLORER_BASE_URL = EXPLORER_BASE_URL;
+import {
+  RPC_URL,
+  ELECTRONEUM_CHAIN_ID,
+  EXPLORER_BASE_URL,
+} from "../config.js";
+
+const PROJECT_ID = "146ee334d324044083b6427d4bbf9202";
 
 export const electroneum = defineChain({
   id: ELECTRONEUM_CHAIN_ID,
-  caipNetworkId: "eip155:52014",
+  caipNetworkId: `eip155:${ELECTRONEUM_CHAIN_ID}`,
   chainNamespace: "eip155",
   name: "Electroneum Mainnet",
   nativeCurrency: {
@@ -27,25 +36,23 @@ export const electroneum = defineChain({
   blockExplorers: {
     default: {
       name: "Electroneum Explorer",
-      url: "https://blockexplorer.electroneum.com",
+      url: EXPLORER_BASE_URL,
     },
   },
 });
-
-const projectId = "146ee334d324044083b6427d4bbf9202";
 
 const metadata = {
   name: "Core Clash",
   description: "Core Clash on Electroneum",
   url: window.location.origin,
-  icons: [`${window.location.origin}/favicon.ico`],
+  icons: [`${window.location.origin}/CoreClashLogo.png`],
 };
 
 export const appKitModal = createAppKit({
   adapters: [new EthersAdapter()],
   networks: [electroneum],
   defaultNetwork: electroneum,
-  projectId,
+  projectId: PROJECT_ID,
   metadata,
   features: {
     analytics: true,
@@ -73,7 +80,10 @@ export function useCoreClashWallet() {
   }, [walletProvider]);
 
   const connectWallet = async () => {
-    await open({ view: "Connect", namespace: "eip155" });
+    await open({
+      view: "Connect",
+      namespace: "eip155",
+    });
   };
 
   const disconnectWallet = async () => {
@@ -81,7 +91,7 @@ export function useCoreClashWallet() {
   };
 
   const ensureCorrectNetwork = async () => {
-    if (!isConnected) return;
+    if (!isConnected || !walletProvider) return;
 
     const network = await provider.getNetwork();
     const chainId = Number(network.chainId);
@@ -95,7 +105,7 @@ export function useCoreClashWallet() {
     ensureCorrectNetwork().catch((err) => {
       console.warn("Network check failed:", err);
     });
-  }, [isConnected, provider]);
+  }, [isConnected, walletProvider]);
 
   return {
     provider,
