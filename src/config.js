@@ -9,6 +9,7 @@ export const RARE_BACKGROUNDS = ["Gold", "Silver", "Verdant Green", "Rose Gold",
 export const CORE_TOKEN = "0x309B916b3A90cb3E071697Ea9680e9217A30066f";
 export const ADMIN_ADDRESS = "0x3Fd2e5B4AC0efF6DFDF2446abddAB3f66B425099"
 export const BACKEND_URL = process.env.REACT_APP_API_URL;
+export const EXPLORER_BASE_URL = "https://blockexplorer.electroneum.com";
 
 console.log("BACKEND_URL =", BACKEND_URL);
 

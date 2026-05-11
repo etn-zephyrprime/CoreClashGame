@@ -12,15 +12,15 @@ import { defineChain } from "@reown/appkit/networks";
 
 import {
   RPC_URL,
-  ELECTRONEUM_CHAIN_ID,
+  CHAIN_ID,
   EXPLORER_BASE_URL,
 } from "../config.js";
 
 const PROJECT_ID = "146ee334d324044083b6427d4bbf9202";
 
 export const electroneum = defineChain({
-  id: ELECTRONEUM_CHAIN_ID,
-  caipNetworkId: `eip155:${ELECTRONEUM_CHAIN_ID}`,
+  id: CHAIN_ID,
+  caipNetworkId: `eip155:${CHAIN_ID}`,
   chainNamespace: "eip155",
   name: "Electroneum Mainnet",
   nativeCurrency: {
@@ -96,7 +96,7 @@ export function useCoreClashWallet() {
     const network = await provider.getNetwork();
     const chainId = Number(network.chainId);
 
-    if (chainId !== ELECTRONEUM_CHAIN_ID) {
+    if (chainId !== CHAIN_ID) {
       await appKitModal.switchNetwork(electroneum);
     }
   };
