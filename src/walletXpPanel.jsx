@@ -367,15 +367,13 @@ if (xpLoading) {
       gap: 8,
     }}
   >
-         {[
-[
+{[
   ["Attack", totalBonus.attack],
   ["Defense", totalBonus.defense],
   ["Vitality", totalBonus.vitality],
   ["Agility", totalBonus.agility],
-]
-          ].map(([label, value]) => (
-            <div
+].map(([label, value]) => (
+              <div
               key={label}
               style={{
                 background: "#141414",
