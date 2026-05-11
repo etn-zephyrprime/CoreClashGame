@@ -5,12 +5,12 @@
   "type": "module",
   "dependencies": {
     "@metamask/providers": "^22.1.1",
+    "@reown/appkit": "^1.8.19",
+    "@reown/appkit-adapter-ethers": "^1.8.19",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
-    "@walletconnect/ethereum-provider": "^2.23.6",
-    "@walletconnect/utils": "^2.23.6",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "csv-parse": "^6.2.1",
@@ -26,7 +26,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "CI=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

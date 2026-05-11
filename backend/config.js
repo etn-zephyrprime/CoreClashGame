@@ -9,6 +9,7 @@ export const IPFS_GATEWAYS = [
 ];
 export const RARE_BACKGROUNDS = ["Gold", "Silver", "Verdant Green", "Rose Gold", "Aether Purple"];
 export const RPC_URL = "https://rpc.ankr.com/electroneum/";
+export const ELECTRONEUM_CHAIN_ID = 52014;
 export const GAME_ADDRESS = "0xBB9ec09EAB6D680E2A6c4794C34A9B3C0208fce2";
 export const BACKEND_PRIVATE_KEY = process.env.BACKEND_PRIVATE_KEY;
 export const VKIN_CONTRACT_ADDRESS = "0x3fc7665B1F6033FF901405CdDF31C2E04B8A2AB4";

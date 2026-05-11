@@ -8,10 +8,10 @@ import React, {
   useRef,
 } from "react";
 import { ethers } from "ethers";
-import { EthereumProvider } from "@walletconnect/ethereum-provider";
-import { getSdkError } from '@walletconnect/utils';
 import GameABI from "./abis/GameABI.json";
 import ERC20ABI from "./abis/ERC20ABI.json";
+
+import CoreClashWalletButton, { useCoreClashWallet } from "./wallet/coreClashWallet.jsx";
 
 import {
   GAME_ADDRESS,
@@ -27,6 +27,8 @@ import {
   ADDRESS_TO_COLLECTION_KEY,
   BACKEND_URL,
   RPC_URL,
+  ELECTRONEUM_CHAIN_ID,
+  EXPLORER_BASE_URL,
 } from "./config.js";
 
 import { renderTokenImages } from "./renderTokenImages.jsx";
@@ -45,6 +47,16 @@ import WalletXpPanel from "./walletXpPanel.jsx";
 import "./App.css";
 
 export default function App() {
+/* ---------------- WALLET & PROVIDER ---------------- */
+const {
+  provider,
+  account,
+  isConnected,
+  connectWallet,
+  disconnectWallet,
+  ensureCorrectNetwork,
+} = useCoreClashWallet();
+
 /* ---------------- GAME SETUP ---------------- */
   const [stakeToken, setStakeToken] = useState("");
   const [stakeAmount, setStakeAmount] = useState("");
@@ -63,36 +75,7 @@ const [showGameInfo, setShowGameInfo] = useState(false);
 const [helpModal, setHelpModal] = useState(null);
 const [showOwnershipWarning, setShowOwnershipWarning] = useState(false);
 
-const ELECTRONEUM_CHAIN_ID = 52014;
 const ELECTRONEUM_CHAIN_HEX = "0xcb4e";
-
-/* ---------------- WALLET STATE ---------------- */
-const [provider, setProvider] = useState(null);
-const [account, setAccount] = useState(null);
-const [walletError, setWalletError] = useState(null);
-const [wcProvider, setWcProvider] = useState(null);
-
-const syncWalletState = useCallback(async (providerLike, wcInstance = null) => {
-  try {
-    const prov = new ethers.BrowserProvider(providerLike);
-    const signer = await prov.getSigner();
-    const addr = await signer.getAddress();
-
-    setProvider(prov);
-    setAccount(addr);
-    setWcProvider(wcInstance);
-    setWalletError(null);
-  } catch (err) {
-    console.warn("syncWalletState failed:", err);
-  }
-}, []);
-
-/* ---------------- DEFAULT PROVIDER ---------------- */
-useEffect(() => {
-  if (!provider) {
-    setProvider(new ethers.JsonRpcProvider(RPC_URL));
-  }
-}, [provider]);
 
 /* ---------------- CONTRACTS (READ ONLY) ---------------- */
 const erc20 = useMemo(() => {
@@ -243,163 +226,6 @@ useEffect(() => {
   return () => clearInterval(timer);
 }, [loading]);
 
-/* ---------------- ENSURE CORRECT NETWORK ---------------- */
-const ensureCorrectNetwork = useCallback(
-  async (provider, wcProviderInstance = null) => {
-    try {
-      // Determine chainId
-if (!(provider instanceof ethers.BrowserProvider)) {
-  throw new Error("Unsupported provider type");
-}
-
-const network = await provider.getNetwork();
-const chainId = Number(network.chainId);
-
-      if (chainId !== ELECTRONEUM_CHAIN_ID) {
-        console.log(`Switching network from ${chainId} → ${ELECTRONEUM_CHAIN_ID}`);
-
-    const hexChainId = "0x" + ELECTRONEUM_CHAIN_ID.toString(16);
-
-        // MetaMask injected
-        if (window.ethereum && !wcProviderInstance) {
-          try {
-            await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: hexChainId }],
-            });
-          } catch (switchErr) {
-            if (switchErr.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [
-                  {
-                    chainId: ELECTRONEUM_CHAIN_ID,
-                    chainName: "Electroneum Mainnet",
-                    nativeCurrency: { name: "Electroneum", symbol: "ETN", decimals: 18 },
-                    rpcUrls: ["https://rpc.ankr.com/electroneum"],
-                    blockExplorerUrls: ["https://blockexplorer.electroneum.com"],
-                  },
-                ],
-              });
-            } else {
-              throw switchErr;
-            }
-          }
-        }
-
-        // WalletConnect
-        if (wcProviderInstance) {
-          try {
-            await wcProviderInstance.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: hexChainId }],
-            });
-          } catch (wcErr) {
-            console.warn("WalletConnect chain switch failed:", wcErr);
-            throw new Error("Switch your mobile wallet network to Electroneum");
-          }
-        }
-
-// Re-check using ethers (safe for all providers)
-const newNetwork = await provider.getNetwork();
-const newChainId = Number(newNetwork.chainId);
-
-if (newChainId !== ELECTRONEUM_CHAIN_ID) {
-  throw new Error("Failed to switch to Electroneum network");
-}
-      }
-    } catch (err) {
-      console.warn("Network check failed:", err);
-      throw new Error(err.message || "Please switch to Electroneum network");
-    }
-  },
-  []
-);
-
-/* ---------------- DISCONNECT WALLET ---------------- */
-const disconnectWallet = useCallback(async () => {
-  setAccount(null);
-  setProvider(null);
-  setWalletError(null);
-
-  if (wcProvider) {
-    try {
-      await wcProvider.disconnect();
-    } catch {}
-    setWcProvider(null);
-  }
-
-  localStorage.clear();
-  sessionStorage.clear();
-}, [wcProvider]);
-
-/* ---------------- UNIFIED WALLET CONNECT ---------------- */
-const connectWallet = useCallback(async (type = "metamask") => {
-  setWalletError(null);
-
-  try {
-    let prov;
-    let addr;
-    let wcProvInstance = null;
-
-    if (type === "metamask") {
-      if (!window.ethereum) throw new Error("MetaMask not installed");
-
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-
-      prov = new ethers.BrowserProvider(window.ethereum);
-      await ensureCorrectNetwork(prov, null);
-
-      const signer = await prov.getSigner();
-      addr = await signer.getAddress();
-    } else if (type === "walletconnect") {
-      wcProvInstance = await EthereumProvider.init({
-        projectId: "146ee334d324044083b6427d4bbf9202",
-        chains: [52014],
-        optionalChains: [52014],
-        showQrModal: true,
-        rpcMap: { 52014: "https://rpc.ankr.com/electroneum" },
-      });
-
-      wcProvInstance.on("connect", async () => {
-        console.log("WalletConnect connected");
-        await syncWalletState(wcProvInstance, wcProvInstance);
-      });
-
-      wcProvInstance.on("accountsChanged", async (accounts) => {
-        console.log("WalletConnect accountsChanged:", accounts);
-        if (accounts?.length > 0) {
-          setAccount(accounts[0]);
-          setProvider(new ethers.BrowserProvider(wcProvInstance));
-          setWcProvider(wcProvInstance);
-          setWalletError(null);
-        }
-      });
-
-      wcProvInstance.on("disconnect", (err) => {
-        console.log("WalletConnect disconnected:", err);
-        setAccount(null);
-        setWcProvider(null);
-      });
-
-      await wcProvInstance.enable();
-
-      prov = new ethers.BrowserProvider(wcProvInstance);
-      await ensureCorrectNetwork(prov, wcProvInstance);
-
-      const signer = await prov.getSigner();
-      addr = await signer.getAddress();
-    }
-
-    setProvider(prov);
-    setAccount(addr);
-    setWcProvider(wcProvInstance);
-  } catch (err) {
-    console.error("Wallet connection failed:", err);
-    setWalletError(err.message || "Wallet connection failed");
-  }
-}, [ensureCorrectNetwork, syncWalletState]);
-
 /// ---------------- XP PROFILE ----------------
 const loadXpProfile = useCallback(async () => {
   if (!account) {
@@ -469,152 +295,6 @@ useEffect(() => {
 
   claimDailyLoginXp();
 }, [account, claimDailyLoginXp]);
-
-/* ---------------- RESTORE WALLET (FIXED) ---------------- */
-useEffect(() => {
-  let isMounted = true;
-
-  const restoreWallet = async () => {
-    if (!isMounted) return;
-
-    try {
-      /* ---------- 1️⃣ Injected (MetaMask) ---------- */
-      if (window.ethereum) {
-        try {
-          const prov = new ethers.BrowserProvider(window.ethereum);
-
-          const accounts = await prov.listAccounts();
-          if (accounts.length > 0) {
-            // 🔹 Validate provider properly
-            await prov.getNetwork();
-
-const signer = await prov.getSigner();
-
-const addr = await signer.getAddress();
-            if (!isMounted) return;
-
-            setProvider(prov);
-            setAccount(addr);
-            setWcProvider(null);
-            setWalletError(null);
-
-            return;
-          }
-        } catch (err) {
-          console.warn("Injected provider stale:", err);
-        }
-      }
-
-      /* ---------- 2️⃣ WalletConnect ---------- */
-      try {
-const wc = await EthereumProvider.init({
-  projectId: "146ee334d324044083b6427d4bbf9202",
-  chains: [52014],
-  optionalChains: [52014],
-  showQrModal: true,
-  rpcMap: { 52014: "https://rpc.ankr.com/electroneum" },
-});
-
-      if ((wc.connected || wc.session) && wc.session?.namespaces?.eip155) {
-          try {
-            await wc.enable();
-          } catch (err) {
-            console.warn("WC enable failed:", err);
-            throw err;
-          }
-
-          const prov = new ethers.BrowserProvider(wc);
-
-          // 🔹 Validate provider
-          await prov.getNetwork();
-
-const signer = await prov.getSigner();
-const addr = await signer.getAddress();
-          if (!isMounted) return;
-
-          setProvider(prov);
-          setAccount(addr);
-          setWcProvider(wc);
-          setWalletError(null);
-
-          return;
-        }
-      } catch (err) {
-        console.warn("WalletConnect restore failed:", err);
-      }
-
-    } catch (err) {
-      console.warn("Wallet restore failed:", err);
-    }
-
-    /* ---------- 3️⃣ Fallback read-only ---------- */
-    if (!isMounted) return;
-
-    const readOnly = new ethers.JsonRpcProvider(RPC_URL);
-
-    setProvider(readOnly);
-    setAccount(null);
-    setWcProvider(null);
-    setWalletError(null);
-  };
-
-  restoreWallet();
-
-  return () => { isMounted = false; };
-}, []);
-
-useEffect(() => {
-  const handleReturnToApp = async () => {
-    try {
-      if (document.visibilityState === "hidden") return;
-
-      // Try injected MetaMask first
-      if (window.ethereum) {
-        try {
-          const injectedProv = new ethers.BrowserProvider(window.ethereum);
-          const accounts = await injectedProv.send("eth_accounts", []);
-
-          if (accounts.length > 0) {
-            setProvider(injectedProv);
-            setAccount(accounts[0]);
-            setWalletError(null);
-            return;
-          }
-        } catch (err) {
-          console.warn("Injected return sync failed:", err);
-        }
-      }
-
-      await loadXpProfile();
-
-      // Then try WalletConnect session
-      if (wcProvider) {
-        try {
-          const prov = new ethers.BrowserProvider(wcProvider);
-          const signer = await prov.getSigner();
-          const addr = await signer.getAddress();
-
-          setProvider(prov);
-          setAccount(addr);
-          setWcProvider(wcProvider);
-          setWalletError(null);
-        } catch (err) {
-          console.warn("WalletConnect return sync failed:", err);
-        }
-      }
-    } catch (err) {
-      console.warn("Return-to-app sync failed:", err);
-    }
-  };
-
-  window.addEventListener("focus", handleReturnToApp);
-  document.addEventListener("visibilitychange", handleReturnToApp);
-
-  return () => {
-    window.removeEventListener("focus", handleReturnToApp);
-    document.removeEventListener("visibilitychange", handleReturnToApp);
-  };
-}, [wcProvider, loadXpProfile]);
 
 /* ---------------- OWNED NFT FETCH ---------------- */
 useEffect(() => {
@@ -713,18 +393,40 @@ if (RARE_BACKGROUNDS.includes(background)) {
   }
 }, [nfts]);
 
-  /* -------- APPROVE TOKENS ----------*/
-  const approveTokens = async () => {
+/* -------- APPROVE TOKENS ---------- */
+const approveTokens = async () => {
   if (!stakeToken || !stakeAmount) {
     alert("Missing stake token or amount");
     return;
   }
 
-    // 🔹 Ensure signer is on Electroneum network
-  await ensureCorrectNetwork(provider, wcProvider);
+  if (!account) {
+    await connectWallet();
+    return;
+  }
+
+  if (!provider) {
+    alert("Provider not ready");
+    return;
+  }
 
   try {
-    const stakeWei = ethers.parseUnits(stakeAmount, 18);
+    await ensureCorrectNetwork();
+
+    const signer = await provider.getSigner();
+    const liveAccount = await signer.getAddress();
+
+    const erc20 = new ethers.Contract(stakeToken, ERC20ABI, signer);
+
+    const stakeWei = ethers.parseUnits(stakeAmount.toString(), 18);
+
+    const allowance = await erc20.allowance(liveAccount, GAME_ADDRESS);
+
+    // Optional but smart: avoid unnecessary approvals
+    if (allowance >= stakeWei) {
+      alert("Already approved");
+      return;
+    }
 
     const tx = await erc20.approve(GAME_ADDRESS, stakeWei);
     await tx.wait();
@@ -905,13 +607,15 @@ const createGame = useCallback(async () => {
     return;
   }
 
-  if (!provider || !account) {
-    alert("Wallet not connected");
+  if (!account) {
+    await connectWallet();
     return;
   }
 
-  // 🔹 Ensure provider is on Electroneum network
-  await ensureCorrectNetwork(provider, wcProvider);
+  if (!provider) {
+    alert("Provider not ready");
+    return;
+  }
 
   if (!stakeToken || !stakeAmount || nfts.some(n => !n.address || !n.tokenId)) {
     alert("All fields must be completed before creating a game");
@@ -919,20 +623,18 @@ const createGame = useCallback(async () => {
   }
 
   try {
-    // 🔹 Get a signer from the current provider
-const signerSafe = await provider.getSigner();
+    await ensureCorrectNetwork();
 
-    // 🔹 Contracts connected to signer for writing
+    const signerSafe = await provider.getSigner();
+
     const gameContract = new ethers.Contract(GAME_ADDRESS, GameABI, signerSafe);
     const erc20Write = new ethers.Contract(stakeToken, ERC20ABI, signerSafe);
 
-    // 🔹 Contracts connected to read-only provider for reading
     const readProvider = new ethers.JsonRpcProvider(RPC_URL);
     const erc20Read = new ethers.Contract(stakeToken, ERC20ABI, readProvider);
 
     const stakeWei = ethers.parseUnits(stakeAmount.toString(), 18);
 
-    // 1️⃣ Check allowance (read-only)
     let allowance;
     try {
       allowance = await erc20Read.allowance(account, GAME_ADDRESS);
@@ -941,241 +643,271 @@ const signerSafe = await provider.getSigner();
       throw new Error("Could not read allowance. Check RPC or network.");
     }
 
-    // 2️⃣ Approve if needed (write)
     if (allowance < stakeWei) {
       const approveTx = await erc20Write.approve(GAME_ADDRESS, stakeWei);
       await approveTx.wait();
     }
 
-// 3️⃣ Prepare commit
-const salt = ethers.toBigInt(ethers.randomBytes(32));
-const nftContracts = nfts.map(n => n.address);
-const tokenIds = nfts.map(n => BigInt(n.tokenId));
+    const salt = ethers.toBigInt(ethers.randomBytes(32));
+    const nftContracts = nfts.map((n) => n.address);
+    const tokenIds = nfts.map((n) => BigInt(n.tokenId));
 
-const commit = ethers.solidityPackedKeccak256(
-  ["uint256", "address", "address", "address", "uint256", "uint256", "uint256"],
-  [salt, ...nftContracts, ...tokenIds]
-);
+    const commit = ethers.solidityPackedKeccak256(
+      [
+        "uint256",
+        "address",
+        "address",
+        "address",
+        "uint256",
+        "uint256",
+        "uint256",
+      ],
+      [salt, ...nftContracts, ...tokenIds]
+    );
 
-// 4️⃣ Create game on-chain
-const tx = await gameContract.createGame(stakeToken, stakeWei, commit);
-const receipt = await tx.wait();
+    const tx = await gameContract.createGame(stakeToken, stakeWei, commit);
+    const receipt = await tx.wait();
 
-// 5️⃣ Extract gameId
-const parsedLogs = receipt.logs
-  .map(log => {
-    try {
-      return gameContract.interface.parseLog(log);
-    } catch {
-      return null;
+    const parsedLogs = receipt.logs
+      .map((log) => {
+        try {
+          return gameContract.interface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    const createdEvent = parsedLogs.find((e) => e.name === "GameCreated");
+
+    if (!createdEvent) {
+      throw new Error("GameCreated event not found");
     }
-  })
-  .filter(Boolean);
 
-const createdEvent = parsedLogs.find(e => e.name === "GameCreated");
-if (!createdEvent) throw new Error("GameCreated event not found");
+    const gameId = Number(createdEvent.args.gameId);
 
-const gameId = Number(createdEvent.args.gameId);
+    downloadRevealBackup({
+      gameId,
+      player: account.toLowerCase(),
+      salt: salt.toString(),
+      nftContracts,
+      tokenIds: tokenIds.map((t) => t.toString()),
+      backgrounds: nfts.map((n) => n.metadata?.background || ""),
+    });
 
-// 6️⃣ Download reveal backup
-downloadRevealBackup({
-  gameId,
-  player: account.toLowerCase(),
-  salt: salt.toString(),
-  nftContracts,
-  tokenIds: tokenIds.map(t => t.toString()),
-  backgrounds: nfts.map(n => n.metadata?.background || ""),
-});
+    const backendRes = await fetch(`${BACKEND_URL}/games`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        gameId,
+        creator: account,
+        stakeToken,
+        stakeAmount: stakeWei.toString(),
+      }),
+    });
 
-// 7️⃣ Save to backend
-const backendRes = await fetch(`${BACKEND_URL}/games`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    gameId,
-    creator: account,
-    stakeToken,
-    stakeAmount: stakeWei.toString(),
-  }),
-});
+    const backendData = await backendRes.json();
 
-const backendData = await backendRes.json();
+    if (!backendRes.ok || !backendData.success) {
+      console.error("Backend game save failed:", backendData);
+      throw new Error(backendData.error || "Failed to save game to backend");
+    }
 
-if (!backendRes.ok || !backendData.success) {
-  console.error("Backend game save failed:", backendData);
-  throw new Error(backendData.error || "Failed to save game to backend");
-}
+    alert(`Game #${gameId} created successfully!\nReveal file downloaded.`);
 
-alert(`Game #${gameId} created successfully!\nReveal file downloaded.`);
-await loadGames();
-await loadXpProfile();
+    await loadGames();
+    await loadXpProfile();
   } catch (err) {
     console.error("Create game failed:", err);
     alert(err.reason || err.message || "Create game failed");
   }
 }, [
   validated,
-  wcProvider,
   stakeToken,
   stakeAmount,
   nfts,
   account,
-  loadGames,
-  downloadRevealBackup,
-  ensureCorrectNetwork,
   provider,
+  connectWallet,
+  ensureCorrectNetwork,
+  loadGames,
   loadXpProfile,
+  downloadRevealBackup,
 ]);
 
 /* ---------------- JOIN GAME ---------------- */
 const joinGame = async (gameId) => {
-  if (!provider || !account) {
-    alert("Wallet not connected");
+  if (!account) {
+    await connectWallet();
     return;
   }
 
-  // 🔹 Ensure provider is on Electroneum network
-  await ensureCorrectNetwork(provider, wcProvider);
+  if (!provider) {
+    alert("Provider not ready");
+    return;
+  }
+
+  if (nfts.some((n) => !n.address || !n.tokenId)) {
+    alert("Select your full team before joining a game");
+    return;
+  }
 
   try {
+    await ensureCorrectNetwork();
+
     const numericGameId = Number(gameId);
 
-    // 🔒 Derive live signer from provider
     const liveSigner = await provider.getSigner();
     const liveAccount = await liveSigner.getAddress();
-    // Contract instance (write via signer)
-    const contractRead = new ethers.Contract(GAME_ADDRESS, GameABI, provider);
-    const contractWrite = contractRead.connect(liveSigner);
 
     if (!liveAccount || liveAccount === ethers.ZeroAddress) {
       throw new Error("Invalid wallet address");
     }
 
-    // 1️⃣ Fetch game details from backend
+    const contractRead = new ethers.Contract(GAME_ADDRESS, GameABI, provider);
+    const contractWrite = contractRead.connect(liveSigner);
+
     const gameRes = await fetch(`${BACKEND_URL}/games/${numericGameId}`);
-    if (!gameRes.ok) throw new Error("Failed to fetch game details");
+    if (!gameRes.ok) {
+      throw new Error("Failed to fetch game details");
+    }
+
     const gameData = await gameRes.json();
 
-    const stakeToken = gameData.stakeToken;
-    const stakeAmount = gameData.stakeAmount; // string/decimal
+    const joinStakeToken = gameData.stakeToken;
+    const joinStakeAmount = gameData.stakeAmount;
 
-    if (!stakeToken || !stakeAmount) {
+    if (!joinStakeToken || !joinStakeAmount) {
       throw new Error("Missing stake information from game");
     }
 
-    console.log(`Joining game ${numericGameId} with stake: ${stakeAmount} of token ${stakeToken}`);
-
-    // 2️⃣ Prepare commit
     const salt = ethers.toBigInt(ethers.randomBytes(32));
-    const nftContracts = nfts.map(n => n.address);
-    const tokenIds = nfts.map(n => BigInt(n.tokenId));
+    const nftContracts = nfts.map((n) => n.address);
+    const tokenIds = nfts.map((n) => BigInt(n.tokenId));
+    const backgrounds = nfts.map((n) => n.metadata?.background || "");
 
-// 🔴 DOWNLOAD IMMEDIATELY (user gesture still active)
-downloadRevealBackup({
-  gameId: numericGameId,
-  player: account.toLowerCase(),
-  salt: salt.toString(),
-  nftContracts,
-  tokenIds: tokenIds.map(t => t.toString()),
-  backgrounds: nfts.map(n => n.metadata?.background || ""),
-});
+    downloadRevealBackup({
+      gameId: numericGameId,
+      player: liveAccount.toLowerCase(),
+      salt: salt.toString(),
+      nftContracts,
+      tokenIds: tokenIds.map((t) => t.toString()),
+      backgrounds,
+    });
 
-    // 6️⃣ Save reveal backup
     const prefix = `${liveAccount.toLowerCase()}_${numericGameId}`;
     localStorage.setItem(`${prefix}_salt`, salt.toString());
     localStorage.setItem(`${prefix}_nftContracts`, JSON.stringify(nftContracts));
-    localStorage.setItem(`${prefix}_tokenIds`, JSON.stringify(tokenIds.map(t => t.toString())));
-    localStorage.setItem(`${prefix}_backgrounds`, JSON.stringify(nfts.map(n => n.metadata?.background || "")));
+    localStorage.setItem(
+      `${prefix}_tokenIds`,
+      JSON.stringify(tokenIds.map((t) => t.toString()))
+    );
+    localStorage.setItem(`${prefix}_backgrounds`, JSON.stringify(backgrounds));
 
-const commit = ethers.solidityPackedKeccak256(
-      ["uint256", "address", "address", "address", "uint256", "uint256", "uint256"],
+    const commit = ethers.solidityPackedKeccak256(
+      [
+        "uint256",
+        "address",
+        "address",
+        "address",
+        "uint256",
+        "uint256",
+        "uint256",
+      ],
       [salt, ...nftContracts, ...tokenIds]
     );
 
-    // 3️⃣ Approve tokens using liveSigner
-    const erc20 = new ethers.Contract(stakeToken, ERC20ABI, liveSigner);
+    const erc20 = new ethers.Contract(joinStakeToken, ERC20ABI, liveSigner);
+    const stakeWei = ethers.parseUnits(joinStakeAmount.toString(), 18);
 
-    const stakeWei = ethers.parseUnits(stakeAmount, 18);
     const allowance = await erc20.allowance(liveAccount, GAME_ADDRESS);
+
     if (allowance < stakeWei) {
-      console.log("Approving tokens...");
       const approveTx = await erc20.approve(GAME_ADDRESS, stakeWei);
       await approveTx.wait();
       alert("Tokens approved!");
     }
 
-    // 4️⃣ Join on-chain
-const tx = await contractWrite.joinGame(numericGameId, commit);
-await tx.wait();
+    const tx = await contractWrite.joinGame(numericGameId, commit);
+    await tx.wait();
 
-const gameOnChain = await contractRead.games(numericGameId);
+    const gameOnChain = await contractRead.games(numericGameId);
 
     if (gameOnChain.player2.toLowerCase() !== liveAccount.toLowerCase()) {
       throw new Error("On-chain player mismatch");
     }
 
-// 5️⃣ Update backend
-const joinRes = await fetch(`${BACKEND_URL}/games/${numericGameId}/join`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    player2: gameOnChain.player2,
-    player2JoinedAt: new Date().toISOString(),
-  }),
-});
+    const joinRes = await fetch(`${BACKEND_URL}/games/${numericGameId}/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        player2: gameOnChain.player2,
+        player2JoinedAt: new Date().toISOString(),
+      }),
+    });
 
-const joinData = await joinRes.json();
+    const joinData = await joinRes.json();
 
-if (!joinRes.ok || !joinData.success) {
-  throw new Error(joinData.error || "Backend join failed");
-}
+    if (!joinRes.ok || !joinData.success) {
+      throw new Error(joinData.error || "Backend join failed");
+    }
 
-// Re-fetch fresh backend game state after join is persisted
-const refreshedGameRes = await fetch(`${BACKEND_URL}/games/${numericGameId}`);
-if (!refreshedGameRes.ok) {
-  throw new Error("Failed to fetch refreshed game after join");
-}
-const refreshedGameData = await refreshedGameRes.json();
+    const refreshedGameRes = await fetch(`${BACKEND_URL}/games/${numericGameId}`);
 
-// ✅ Trigger auto-reveal with fresh backend state
-await autoRevealIfPossible({
-  ...refreshedGameData,
-  id: numericGameId,
-});
+    if (!refreshedGameRes.ok) {
+      throw new Error("Failed to fetch refreshed game after join");
+    }
+
+    const refreshedGameData = await refreshedGameRes.json();
+
+    await autoRevealIfPossible({
+      ...refreshedGameData,
+      id: numericGameId,
+    });
 
     alert(`Joined game #${numericGameId} successfully!`);
 
     await loadGames();
     await loadXpProfile();
     setPendingAutoRevealGameId(numericGameId);
-
   } catch (err) {
     console.error("Join game failed:", err);
     alert(err.reason || err.message || "Join failed");
   }
 };
 
-/* -------- CANCEL UNJOINED GAME -----------*/
+/* -------- CANCEL UNJOINED GAME ----------- */
 const cancelUnjoinedGame = async (gameId) => {
-  if (!provider || !account) {
-    alert("Wallet not connected");
+  if (!account) {
+    await connectWallet();
     return;
   }
 
-  // 🔹 Ensure provider is on Electroneum network
-  await ensureCorrectNetwork(provider, wcProvider);
+  if (!provider) {
+    alert("Provider not ready");
+    return;
+  }
 
   try {
-    // 🔒 Derive live signer
+    await ensureCorrectNetwork();
+
     const liveSigner = await provider.getSigner();
 
-    // 1️⃣ Cancel on-chain
-    const contract = new ethers.Contract(GAME_ADDRESS, GameABI).connect(liveSigner);
+    const contract = new ethers.Contract(
+      GAME_ADDRESS,
+      GameABI,
+      liveSigner
+    );
 
-    const tx = await contract.cancelUnjoinedGame(gameId);
+    const tx = await contract.cancelUnjoinedGame(Number(gameId));
     await tx.wait();
 
     await loadGames();
+
     alert(`Game #${gameId} cancelled successfully`);
   } catch (err) {
     console.error("Cancel failed:", err);
@@ -1188,35 +920,39 @@ const autoRevealIfPossible = useCallback(
   async (g) => {
     if (!account || !provider) return;
 
-    await ensureCorrectNetwork(provider, wcProvider);
-
     try {
+      await ensureCorrectNetwork();
+
       const contractRead = new ethers.Contract(GAME_ADDRESS, GameABI, provider);
+
       const signer = await provider.getSigner();
+      const liveAccount = await signer.getAddress();
+      const liveAccountLower = liveAccount.toLowerCase();
+
       const contractWrite = new ethers.Contract(GAME_ADDRESS, GameABI, signer);
 
       const chainGame = await contractRead.games(BigInt(g.id));
 
-      const accountLower = account.toLowerCase();
       const zeroLower = ethers.ZeroAddress.toLowerCase();
 
       const player1 = chainGame.player1.toLowerCase();
       const player2 = chainGame.player2.toLowerCase();
 
-      const isP1 = player1 === accountLower;
-      const isP2 = player2 === accountLower;
+      const isP1 = player1 === liveAccountLower;
+      const isP2 = player2 === liveAccountLower;
 
       if (!isP1 && !isP2) return;
 
       if (
         (isP1 && chainGame.player1Revealed) ||
         (isP2 && chainGame.player2Revealed)
-      ) return;
+      ) {
+        return;
+      }
 
       if (player2 === zeroLower) return;
 
-      // 🔹 Load local data
-      const prefix = `${accountLower}_${g.id}`;
+      const prefix = `${liveAccountLower}_${g.id}`;
       const saltStr = localStorage.getItem(`${prefix}_salt`);
       const nftContractsStr = localStorage.getItem(`${prefix}_nftContracts`);
       const tokenIdsStr = localStorage.getItem(`${prefix}_tokenIds`);
@@ -1227,7 +963,6 @@ const autoRevealIfPossible = useCallback(
       const nftContracts = JSON.parse(nftContractsStr);
       const tokenIds = JSON.parse(tokenIdsStr).map(BigInt);
 
-      // ✅ 1️⃣ Chain FIRST
       const tx = await contractWrite.reveal(
         BigInt(g.id),
         salt,
@@ -1237,32 +972,31 @@ const autoRevealIfPossible = useCallback(
 
       await tx.wait();
 
-// ✅ 2️⃣ Backend AFTER success
-const revealRes = await fetch(`${BACKEND_URL}/games/${g.id}/reveal`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "x-wallet": accountLower, // explicit auth (safe + clear)
-  },
-  body: JSON.stringify({
-    player: accountLower,
-    salt: salt.toString(),
-    nftContracts,
-    tokenIds: tokenIds.map((t) => t.toString()),
-  }),
-});
+      const revealRes = await fetch(`${BACKEND_URL}/games/${g.id}/reveal`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-wallet": liveAccountLower,
+        },
+        body: JSON.stringify({
+          player: liveAccountLower,
+          salt: salt.toString(),
+          nftContracts,
+          tokenIds: tokenIds.map((t) => t.toString()),
+        }),
+      });
 
-const revealJson = await revealRes.json().catch(() => ({}));
+      const revealJson = await revealRes.json().catch(() => ({}));
 
-console.log("🔍 Reveal response:", revealRes.status, revealJson);
+      console.log("Reveal response:", revealRes.status, revealJson);
 
-if (!revealRes.ok) {
-  throw new Error(
-    revealJson.error || `Reveal failed (${revealRes.status})`
-  );
-}
+      if (!revealRes.ok) {
+        throw new Error(
+          revealJson.error || `Reveal failed (${revealRes.status})`
+        );
+      }
 
-console.log("Auto-reveal completed", g.id, revealJson);
+      console.log("Auto-reveal completed", g.id, revealJson);
 
       await triggerBackendComputeIfNeeded(g.id);
       await loadGames();
@@ -1271,169 +1005,242 @@ console.log("Auto-reveal completed", g.id, revealJson);
       console.error("Auto-reveal failed:", err);
     }
   },
-  [wcProvider, account, provider, loadGames, triggerBackendComputeIfNeeded, ensureCorrectNetwork, loadXpProfile ]
+  [
+    account,
+    provider,
+    ensureCorrectNetwork,
+    triggerBackendComputeIfNeeded,
+    loadGames,
+    loadXpProfile,
+  ]
 );
 
 /* ---------------- REVEAL FILE UPLOAD ---------------- */
-const handleRevealFile = useCallback(async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+const handleRevealFile = useCallback(
+  async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-
-    const { gameId, salt, nftContracts, tokenIds, backgrounds } = data;
-
-    if (
-      gameId === undefined ||
-      !salt ||
-      !Array.isArray(nftContracts) ||
-      !Array.isArray(tokenIds) ||
-      !Array.isArray(backgrounds)
-    ) {
-      throw new Error("Invalid reveal file");
-    }
-
-    if (!account || !provider) {
-      throw new Error("Wallet not connected");
-    }
-
-    await ensureCorrectNetwork(provider, wcProvider);
-
-    const signer = await provider.getSigner();
-    const contract = new ethers.Contract(GAME_ADDRESS, GameABI, signer);
-
-    // 1️⃣ On-chain reveal
-    const tx = await contract.reveal(
-      BigInt(gameId),
-      BigInt(salt),
-      nftContracts,
-      tokenIds.map(id => BigInt(id)),
-      backgrounds
-    );
-    await tx.wait();
-    console.log("On-chain reveal succeeded for game", gameId);
-
-    // 2️⃣ Backend reveal
-    let backendData;
     try {
-      const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          player: account.toLowerCase(),
-          salt,
-          nftContracts,
-          tokenIds,
-          backgrounds,
-        }),
-      });
+      const text = await file.text();
+      const data = JSON.parse(text);
 
-      backendData = await res.json();
+      const { gameId, salt, nftContracts, tokenIds, backgrounds } = data;
 
-      if (!res.ok) throw new Error(backendData.error || "Backend reveal failed");
+      if (
+        gameId === undefined ||
+        !salt ||
+        !Array.isArray(nftContracts) ||
+        !Array.isArray(tokenIds) ||
+        !Array.isArray(backgrounds)
+      ) {
+        throw new Error("Invalid reveal file");
+      }
 
-      console.log("Backend reveal succeeded for game", gameId);
+      if (!account) {
+        await connectWallet();
+        return;
+      }
 
-    } catch (backendErr) {
-      console.warn("Backend reveal failed, but on-chain succeeded:", backendErr);
-      alert(
-        "Reveal succeeded on-chain but failed to update backend. Please retry posting reveal."
+      if (!provider) {
+        throw new Error("Provider not ready");
+      }
+
+      await ensureCorrectNetwork();
+
+      const signer = await provider.getSigner();
+      const liveAccount = await signer.getAddress();
+
+      const contract = new ethers.Contract(
+        GAME_ADDRESS,
+        GameABI,
+        signer
       );
-      return; // exit early, allow retry
+
+      // 1️⃣ On-chain reveal
+      const tx = await contract.reveal(
+        BigInt(gameId),
+        BigInt(salt),
+        nftContracts,
+        tokenIds.map((id) => BigInt(id)),
+        backgrounds
+      );
+
+      await tx.wait();
+      console.log("On-chain reveal succeeded for game", gameId);
+
+      // 2️⃣ Backend reveal
+      let backendData;
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-wallet": liveAccount.toLowerCase(),
+          },
+          body: JSON.stringify({
+            player: liveAccount.toLowerCase(),
+            salt,
+            nftContracts,
+            tokenIds,
+            backgrounds,
+          }),
+        });
+
+        backendData = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            backendData.error || "Backend reveal failed"
+          );
+        }
+
+        console.log("Backend reveal succeeded for game", gameId);
+      } catch (backendErr) {
+        console.warn(
+          "Backend reveal failed, but on-chain succeeded:",
+          backendErr
+        );
+
+        alert(
+          "Reveal succeeded on-chain but failed to update backend. Please retry posting reveal."
+        );
+
+        return;
+      }
+
+      // 3️⃣ Trigger compute + refresh
+      await triggerBackendComputeIfNeeded(gameId);
+      await loadGames();
+      await loadXpProfile();
+
+      alert("Reveal successful!");
+    } catch (err) {
+      console.error("Reveal failed:", err);
+      alert(`Reveal failed: ${err.message}`);
     }
-
-    // 3️⃣ Trigger compute and reload UI
-    await triggerBackendComputeIfNeeded(gameId);
-    await loadGames();
-    await loadXpProfile();
-
-    alert("Reveal successful!");
-
-  } catch (err) {
-    console.error("Reveal failed:", err);
-    alert(`Reveal failed: ${err.message}`);
-  }
-}, [account, provider, wcProvider, loadGames, ensureCorrectNetwork, triggerBackendComputeIfNeeded, loadXpProfile]);
+  },
+  [
+    account,
+    provider,
+    connectWallet,
+    ensureCorrectNetwork,
+    triggerBackendComputeIfNeeded,
+    loadGames,
+    loadXpProfile,
+  ]
+);
 
 /* ------ MANUAL SETTLE GAME -------- */
 const manualSettleGame = useCallback(
   async (gameId) => {
     try {
-      if (!account || !provider) {
-        alert("Wallet not ready");
+      if (!account) {
+        await connectWallet();
         return;
       }
 
-      // 🔹 Ensure provider is on Electroneum network
-      await ensureCorrectNetwork(provider, wcProvider);
+      if (!provider) {
+        alert("Provider not ready");
+        return;
+      }
 
-      // Step 1: Compute results on backend
-const computeHttpRes = await fetch(`${BACKEND_URL}/games/${gameId}/compute-results`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-});
+      await ensureCorrectNetwork();
 
-const computeRes = await computeHttpRes.json();
+      const liveSigner = await provider.getSigner();
+      const liveAccount = await liveSigner.getAddress();
 
-if (!computeHttpRes.ok || !computeRes.success) {
-  alert(`Failed to compute results: ${computeRes.error || "Unknown error"}`);
-  return;
-}
+      const computeHttpRes = await fetch(
+        `${BACKEND_URL}/games/${gameId}/compute-results`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const computeRes = await computeHttpRes.json();
+
+      if (!computeHttpRes.ok || !computeRes.success) {
+        alert(`Failed to compute results: ${computeRes.error || "Unknown error"}`);
+        return;
+      }
 
       console.log("Computed results:", computeRes);
 
-      // Step 2: Post winner on-chain via live signer
-      const liveSigner = await provider.getSigner();
-      const gameContract = new ethers.Contract(GAME_ADDRESS, GameABI).connect(liveSigner);
+      const postWinnerHttpRes = await fetch(
+        `${BACKEND_URL}/games/${gameId}/post-winner`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-wallet": liveAccount.toLowerCase(),
+          },
+        }
+      );
 
-      const postWinnerRes = await fetch(`${BACKEND_URL}/games/${gameId}/post-winner`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      }).then(r => r.json());
+      const postWinnerRes = await postWinnerHttpRes.json();
 
-if (!postWinnerRes.success && !postWinnerRes.alreadyPosted) {
-  alert(`Failed to post winner: ${postWinnerRes.error || "Unknown error"}`);
-  return;
-}
+      if (
+        (!postWinnerHttpRes.ok || !postWinnerRes.success) &&
+        !postWinnerRes.alreadyPosted
+      ) {
+        alert(`Failed to post winner: ${postWinnerRes.error || "Unknown error"}`);
+        return;
+      }
 
       console.log("Winner posted:", postWinnerRes);
 
-// Step 3: Settle game on-chain only if not already settled
-const settleRes = await fetch(`${BACKEND_URL}/games/${gameId}/settle-game`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ settledBy: account }),
-}).then(r => r.json());
+      const settleHttpRes = await fetch(
+        `${BACKEND_URL}/games/${gameId}/settle-game`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-wallet": liveAccount.toLowerCase(),
+          },
+          body: JSON.stringify({
+            settledBy: liveAccount,
+          }),
+        }
+      );
 
-if (!settleRes.success) {
-  if (settleRes.alreadySettled) {
-    console.log(`Game ${gameId} already settled on-chain`);
-  } else {
-    alert(`Failed to settle game: ${settleRes.error || "Unknown error"}`);
-    return;
-  }
-} else {
-  console.log(`Game ${gameId} settled successfully:`, settleRes.txHash);
-}
+      const settleRes = await settleHttpRes.json();
 
-      if (!postWinnerRes.txHash) {
+      if ((!settleHttpRes.ok || !settleRes.success) && !settleRes.alreadySettled) {
+        alert(`Failed to settle game: ${settleRes.error || "Unknown error"}`);
+        return;
+      }
+
+      if (settleRes.alreadySettled) {
+        console.log(`Game ${gameId} already settled on-chain`);
+      } else {
+        console.log(`Game ${gameId} settled successfully:`, settleRes.txHash);
+      }
+
+      if (!postWinnerRes.txHash && !postWinnerRes.alreadyPosted) {
         throw new Error(
-          "Awaiting on-chain postWinner and settleGame transaction. Reconcile also needs to run... please wait (~2mins). Hit refresh games"
+          "Awaiting on-chain postWinner and settleGame transaction. Please refresh games shortly."
         );
       }
 
-      // Refresh local state
       await loadGames();
       await loadXpProfile();
-
     } catch (err) {
       console.error("Manual settle failed:", err);
       alert(err.message || "Manual settle failed");
     }
   },
-  [provider, wcProvider, account, loadGames, ensureCorrectNetwork, loadXpProfile]
+  [
+    account,
+    provider,
+    connectWallet,
+    ensureCorrectNetwork,
+    loadGames,
+    loadXpProfile,
+  ]
 );
 
 /// ---------------- XP LEVELS & PROGRESS CALCULATION ----------------
@@ -2611,7 +2418,7 @@ return (
   }}
 />
 
-{/* ---------------- WALLET BUTTONS ---------------- */}
+{/* ---------------- WALLET BUTTON ---------------- */}
 <div
   style={{
     display: "flex",
@@ -2621,112 +2428,92 @@ return (
   }}
 >
   {!account ? (
-    <>
-      {/* Connect MetaMask */}
-      <button
-        onClick={() => connectWallet("metamask")}
-        style={{
-          backgroundColor: "#18bb1a",
-          color: "#fff",
-          border: "none",
-          padding: isMobile ? "10px 16px" : "14px 28px",
-          fontSize: isMobile ? 14 : 16,
-          fontWeight: "bold",
-          borderRadius: 12,
-          cursor: "pointer",
-          boxShadow: "0 0 10px rgba(24,187,26,0.6)",
-          transition: "all 0.2s ease",
-          whiteSpace: "nowrap",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 0 20px rgba(24,187,26,0.9)")}
-        onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 0 10px rgba(24,187,26,0.6)")}
-      >
-        Connect MetaMask
-      </button>
-
-      {/* Connect WalletConnect */}
-      <button
-        onClick={() => connectWallet("walletconnect")}
-        style={{
-          backgroundColor: "#1a75ff",
-          color: "#fff",
-          border: "none",
-          padding: isMobile ? "10px 16px" : "14px 28px",
-          fontSize: isMobile ? 14 : 16,
-          fontWeight: "bold",
-          borderRadius: 12,
-          cursor: "pointer",
-          boxShadow: "0 0 10px rgba(26,117,255,0.6)",
-          transition: "all 0.2s ease",
-          whiteSpace: "nowrap",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 0 20px rgba(26,117,255,0.9)")}
-        onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 0 10px rgba(26,117,255,0.6)")}
-      >
-        Connect Mobile
-      </button>
-    </>
-  ) : (
-    // Wallet connected view
-<div
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    alignItems: isMobile ? "stretch" : "flex-end",
-    gap: 10,
-  }}
->
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      background: "#0f0f0f",
-      padding: "6px 12px",
-      borderRadius: 12,
-      border: "1px solid #333",
-      boxShadow: "0 0 8px rgba(0,0,0,0.4)",
-    }}
-  >
-    <span
-      style={{
-        fontSize: isMobile ? 12 : 14,
-        fontWeight: 600,
-        color: "#fff",
-        letterSpacing: 0.3,
-      }}
-    >
-      {account?.slice(0, 6)}...{account?.slice(-4)}
-    </span>
-
-    <div style={{ width: 1, height: 16, background: "#333" }} />
-
     <button
-      onClick={disconnectWallet}
+      onClick={connectWallet}
       style={{
-        background: "transparent",
+        backgroundColor: "#18bb1a",
+        color: "#fff",
         border: "none",
-        color: "#ff6b6b",
-        fontWeight: 600,
-        fontSize: isMobile ? 11 : 13,
+        padding: isMobile ? "10px 16px" : "14px 28px",
+        fontSize: isMobile ? 14 : 16,
+        fontWeight: "bold",
+        borderRadius: 12,
         cursor: "pointer",
-        padding: "2px 6px",
+        boxShadow: "0 0 10px rgba(24,187,26,0.6)",
         transition: "all 0.2s ease",
+        whiteSpace: "nowrap",
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.color = "#ff3b3b")}
-      onMouseLeave={(e) => (e.currentTarget.style.color = "#ff6b6b")}
+      onMouseEnter={(e) =>
+        (e.currentTarget.style.boxShadow =
+          "0 0 20px rgba(24,187,26,0.9)")
+      }
+      onMouseLeave={(e) =>
+        (e.currentTarget.style.boxShadow =
+          "0 0 10px rgba(24,187,26,0.6)")
+      }
     >
-      Disconnect
+      Connect Wallet
     </button>
-  </div>
+  ) : (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: isMobile ? "stretch" : "flex-end",
+        gap: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "#0f0f0f",
+          padding: "6px 12px",
+          borderRadius: 12,
+          border: "1px solid #333",
+          boxShadow: "0 0 8px rgba(0,0,0,0.4)",
+        }}
+      >
+        <span
+          style={{
+            fontSize: isMobile ? 12 : 14,
+            fontWeight: 600,
+            color: "#fff",
+            letterSpacing: 0.3,
+          }}
+        >
+          {account?.slice(0, 6)}...{account?.slice(-4)}
+        </span>
 
-<WalletXpPanel
-  xpProfile={xpProfile}
-  xpLoading={xpLoading}
-  isMobile={isMobile}
-/>
-</div>
-)}
+        <div style={{ width: 1, height: 16, background: "#333" }} />
+
+        <button
+          onClick={disconnectWallet}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "#ff6b6b",
+            fontWeight: 600,
+            fontSize: isMobile ? 11 : 13,
+            cursor: "pointer",
+            padding: "2px 6px",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#ff3b3b")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#ff6b6b")}
+        >
+          Disconnect
+        </button>
+      </div>
+
+      <WalletXpPanel
+        xpProfile={xpProfile}
+        xpLoading={xpLoading}
+        isMobile={isMobile}
+      />
+    </div>
+  )}
 </div>
 </div>
 
