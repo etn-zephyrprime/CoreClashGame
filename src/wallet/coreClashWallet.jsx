@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import { useCallback } from "react";
 import { ethers } from "ethers";
 import {
   createAppKit,
@@ -90,22 +91,22 @@ export function useCoreClashWallet() {
     await disconnect();
   };
 
-  const ensureCorrectNetwork = async () => {
-    if (!isConnected || !walletProvider) return;
+const ensureCorrectNetwork = useCallback(async () => {
+  if (!isConnected || !walletProvider) return;
 
-    const network = await provider.getNetwork();
-    const chainId = Number(network.chainId);
+  const network = await provider.getNetwork();
+  const chainId = Number(network.chainId);
 
-    if (chainId !== CHAIN_ID) {
-      await appKitModal.switchNetwork(electroneum);
-    }
-  };
+  if (chainId !== ELECTRONEUM_CHAIN_ID) {
+    await appKitModal.switchNetwork(electroneum);
+  }
+}, [isConnected, walletProvider, provider]);
 
-  useEffect(() => {
-    ensureCorrectNetwork().catch((err) => {
-      console.warn("Network check failed:", err);
-    });
-  }, [isConnected, walletProvider]);
+useEffect(() => {
+  ensureCorrectNetwork().catch((err) => {
+    console.warn("Network check failed:", err);
+  });
+}, [ensureCorrectNetwork]);
 
   return {
     provider,
