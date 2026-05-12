@@ -62,6 +62,8 @@ export const appKitModal = createAppKit({
   },
 });
 
+const readOnlyProvider = new ethers.JsonRpcProvider(RPC_URL);
+
 export function useCoreClashWallet() {
   const { open } = useAppKit();
   const { disconnect } = useDisconnect();
@@ -74,22 +76,35 @@ export function useCoreClashWallet() {
   const { walletProvider } = useAppKitProvider("eip155");
 
   const provider = useMemo(() => {
-    if (walletProvider && isConnected) {
-      return new ethers.BrowserProvider(walletProvider);
+    if (!isConnected || !walletProvider) {
+      return readOnlyProvider;
     }
 
-    return new ethers.JsonRpcProvider(RPC_URL);
-  }, [walletProvider, isConnected]);
+    try {
+      return new ethers.BrowserProvider(walletProvider);
+    } catch (err) {
+      console.warn("Failed to create BrowserProvider:", err);
+      return readOnlyProvider;
+    }
+  }, [isConnected, walletProvider]);
 
   const connectWallet = useCallback(async () => {
-    await open({
-      view: "Connect",
-      namespace: "eip155",
-    });
+    try {
+      await open({
+        view: "Connect",
+        namespace: "eip155",
+      });
+    } catch (err) {
+      console.error("Connect wallet failed:", err);
+    }
   }, [open]);
 
   const disconnectWallet = useCallback(async () => {
-    await disconnect();
+    try {
+      await disconnect();
+    } catch (err) {
+      console.error("Disconnect wallet failed:", err);
+    }
   }, [disconnect]);
 
   const ensureCorrectNetwork = useCallback(async () => {
@@ -97,17 +112,16 @@ export function useCoreClashWallet() {
       throw new Error("Wallet not connected");
     }
 
-    const currentChainId = caipNetwork?.id
-      ? Number(caipNetwork.id)
-      : null;
+    const currentChainId = caipNetwork?.id ? Number(caipNetwork.id) : null;
 
     if (currentChainId !== CHAIN_ID) {
       await switchNetwork(electroneum);
     }
-  }, [isConnected, walletProvider, caipNetwork, switchNetwork]);
+  }, [isConnected, walletProvider, caipNetwork?.id, switchNetwork]);
 
   return {
     provider,
+    walletProvider,
     account: address || null,
     isConnected,
     walletStatus: status,
