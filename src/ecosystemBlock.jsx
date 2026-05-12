@@ -15,19 +15,20 @@ export default function EcosystemBlock({
   const ecosystemItems = [
     {
       type: "card",
+      linkKey: "website",
+      label: "Zephyros Website",
+      alt: "Planet ETN",
+      videoSrc: PlanetZephyrosAE,
+      imageScale: 1.05, // 👈 add this
+      url: "https://planetetn.org/zephyros",
+    },
+    {
+      type: "card",
       linkKey: "electroswap",
       label: "Buy CORE",
       alt: "Buy CORE",
       imageSrc: ElectroSwap,
       url: "https://app.electroswap.io/explore/tokens/electroneum/0x309b916b3a90cb3e071697ea9680e9217a30066f?inputCurrency=ETN",
-    },
-    {
-      type: "card",
-      linkKey: "website",
-      label: "Planet ETN",
-      alt: "Planet ETN",
-      videoSrc: PlanetZephyrosAE,
-      url: "https://planetetn.org/zephyros",
     },
 {
   type: "banner",
@@ -100,15 +101,16 @@ export default function EcosystemBlock({
   switch (item.type) {
     case "card":
       return (
-        <EcosystemCard
-          key={item.linkKey}
-          isMobile={isMobile}
-          label={item.label}
-          alt={item.alt}
-          imageSrc={item.imageSrc}
-          videoSrc={item.videoSrc}
-          onClick={onClick}
-        />
+<EcosystemCard
+  key={item.linkKey}
+  isMobile={isMobile}
+  label={item.label}
+  alt={item.alt}
+  imageSrc={item.imageSrc}
+  videoSrc={item.videoSrc}
+  imageScale={item.imageScale}
+  onClick={onClick}
+/>
       );
 
     case "banner":
