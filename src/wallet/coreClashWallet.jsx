@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo } from "react";
-import { useCallback } from "react";
+import React, { useEffect, useMemo, useCallback } from "react";
 import { ethers } from "ethers";
 import {
   createAppKit,
@@ -11,11 +10,7 @@ import {
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
 import { defineChain } from "@reown/appkit/networks";
 
-import {
-  RPC_URL,
-  CHAIN_ID,
-  EXPLORER_BASE_URL,
-} from "../config.js";
+import { RPC_URL, CHAIN_ID, EXPLORER_BASE_URL } from "../config.js";
 
 const PROJECT_ID = "146ee334d324044083b6427d4bbf9202";
 
@@ -73,43 +68,46 @@ export function useCoreClashWallet() {
   const { walletProvider } = useAppKitProvider("eip155");
 
   const provider = useMemo(() => {
-    if (walletProvider) {
-      return new ethers.BrowserProvider(walletProvider);
-    }
-
-    return new ethers.JsonRpcProvider(RPC_URL);
+    if (!walletProvider) return null;
+    return new ethers.BrowserProvider(walletProvider);
   }, [walletProvider]);
 
-  const connectWallet = async () => {
+  const rpcProvider = useMemo(() => {
+    return new ethers.JsonRpcProvider(RPC_URL);
+  }, []);
+
+  const connectWallet = useCallback(async () => {
     await open({
       view: "Connect",
       namespace: "eip155",
     });
-  };
+  }, [open]);
 
-  const disconnectWallet = async () => {
+  const disconnectWallet = useCallback(async () => {
     await disconnect();
-  };
+  }, [disconnect]);
 
-const ensureCorrectNetwork = useCallback(async () => {
-  if (!isConnected || !walletProvider) return;
+  const ensureCorrectNetwork = useCallback(async () => {
+    if (!isConnected || !walletProvider) return;
 
-  const network = await provider.getNetwork();
-  const chainId = Number(network.chainId);
+    const network = await provider.getNetwork();
+    const chainId = Number(network.chainId);
 
-  if (chainId !== CHAIN_ID) {
-    await appKitModal.switchNetwork(electroneum);
-  }
-}, [isConnected, walletProvider, provider]);
+    if (chainId !== CHAIN_ID) {
+      await appKitModal.switchNetwork(electroneum);
+    }
+  }, [isConnected, walletProvider, provider]);
 
-useEffect(() => {
-  ensureCorrectNetwork().catch((err) => {
-    console.warn("Network check failed:", err);
-  });
-}, [ensureCorrectNetwork]);
+  useEffect(() => {
+    if (!isConnected || !walletProvider || !provider) return;
+
+    ensureCorrectNetwork().catch((err) => {
+      console.warn("Network check failed:", err);
+    });
+  }, [isConnected, walletProvider, provider, ensureCorrectNetwork]);
 
   return {
-    provider,
+    provider: provider ?? rpcProvider,
     account: address || null,
     isConnected,
     walletStatus: status,
