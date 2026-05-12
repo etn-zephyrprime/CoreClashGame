@@ -6,8 +6,9 @@ export default function EcosystemCard({
   label,
   isMobile,
   maxWidth = 140,
+  imageScale = 1,
 }) {
-  return (
+    return (
     <div
       onClick={onClick}
       style={{
@@ -50,22 +51,24 @@ export default function EcosystemCard({
             loop
             muted
             playsInline
-            style={{
-              width: isMobile ? 38 : 44,
-              height: isMobile ? 38 : 44,
-              borderRadius: 6,
-              objectFit: "cover",
-            }}
+style={{
+  width: isMobile ? 38 : 44,
+  height: isMobile ? 38 : 44,
+  borderRadius: 6,
+  objectFit: "cover",
+  transform: `scale(${imageScale})`,
+}}
           />
         ) : (
           <img
             src={imageSrc}
             alt={alt}
-            style={{
-              width: isMobile ? 34 : 40,
-              height: isMobile ? 34 : 40,
-              borderRadius: 6,
-            }}
+style={{
+  width: isMobile ? 34 : 40,
+  height: isMobile ? 34 : 40,
+  borderRadius: 6,
+  transform: `scale(${imageScale})`,
+}}
           />
         )}
 
