@@ -3293,23 +3293,39 @@ onClick={createGame} // <-- THIS IS REQUIRED
     </h2>
     </div>
 
-  <button
-    type="button"
-    onClick={loadGames}
-    disabled={loadingGames}
-    style={{
-      background: "#222",
-      color: "#18bb1a",
-      border: "1px solid #18bb1a",
-      padding: isMobile ? "6px 12px" : "8px 16px",
-      borderRadius: 4,
-      cursor: loadingGames ? "not-allowed" : "pointer",
-      fontSize: isMobile ? 13 : 16,
-      opacity: loadingGames ? 0.6 : 1,
-    }}
-  >
-    🔄 Refresh Games
-  </button>
+<button
+  type="button"
+  onClick={loadGames}
+  disabled={loadingGames}
+  style={{
+    background: "#151515",
+    color: "#18bb1a",
+    border: "1px solid #2f2f2f",
+    padding: isMobile ? "6px 12px" : "8px 16px",
+    borderRadius: 10,
+    cursor: loadingGames ? "not-allowed" : "pointer",
+    fontSize: isMobile ? 13 : 14,
+    fontWeight: 700,
+    letterSpacing: 0.3,
+    opacity: loadingGames ? 0.6 : 1,
+    boxShadow: "0 0 8px rgba(0,0,0,0.35)",
+    transition: "all 0.2s ease",
+  }}
+  onMouseEnter={(e) => {
+    if (!loadingGames) {
+      e.currentTarget.style.borderColor = "#18bb1a";
+      e.currentTarget.style.boxShadow =
+        "0 0 12px rgba(24,187,26,0.35)";
+    }
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.borderColor = "#2f2f2f";
+    e.currentTarget.style.boxShadow =
+      "0 0 8px rgba(0,0,0,0.35)";
+  }}
+>
+  {loadingGames ? "Refreshing..." : "🔄 Refresh"}
+</button>
 </div>
 
 <div
