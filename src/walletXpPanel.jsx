@@ -37,8 +37,8 @@ export default function WalletXpPanel({
   const [showXpHelp, setShowXpHelp] = useState(false);
   const [showPerks, setShowPerks] = useState(false);
 
-  const statsBonus = xpProfile.statsBonus || {};
-const weeklyBonus = xpProfile.weeklyLeaderboardBonus || {};
+const statsBonus = xpProfile?.statsBonus || {};
+const weeklyBonus = xpProfile?.weeklyLeaderboardBonus || {};
 
 const totalBonus = {
   attack: Number(((statsBonus.attack || 0) + (weeklyBonus.attack || 0)).toFixed(2)),
@@ -88,8 +88,10 @@ if (xpLoading) {
     );
   }
 
-  const progress = getLevelProgress(xpProfile.xp, xpProfile.level);
-
+const progress = xpProfile
+  ? getLevelProgress(Number(xpProfile.xp || 0), Number(xpProfile.level || 0))
+  : 0;
+  
   return (
     <div
       style={{

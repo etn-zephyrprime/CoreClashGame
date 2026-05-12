@@ -58,6 +58,8 @@ const {
   ensureCorrectNetwork,
 } = useCoreClashWallet();
 
+const readProvider = new ethers.JsonRpcProvider(RPC_URL);
+
 /* ---------------- GAME SETUP ---------------- */
   const [stakeToken, setStakeToken] = useState("");
   const [stakeAmount, setStakeAmount] = useState("");
@@ -487,11 +489,7 @@ const loadGames = useCallback(async () => {
   setLoadingGames(true);
 
   try {
-    // ✅ Use wallet-independent fallback RPC provider
-    const readProvider = new ethers.JsonRpcProvider(RPC_URL);
-
-    // Connect contract for read-only
-    const contract = new ethers.Contract(GAME_ADDRESS, GameABI).connect(readProvider);
+const contract = new ethers.Contract(GAME_ADDRESS, GameABI, readProvider);
 
     // 1️⃣ Load on-chain games
     const loadedOnChain = [];
@@ -2476,16 +2474,16 @@ return (
           boxShadow: "0 0 8px rgba(0,0,0,0.4)",
         }}
       >
-        <span
-          style={{
-            fontSize: isMobile ? 12 : 14,
-            fontWeight: 600,
-            color: "#fff",
-            letterSpacing: 0.3,
-          }}
-        >
-          {account?.slice(0, 6)}...{account?.slice(-4)}
-        </span>
+<span
+  style={{
+    fontSize: isMobile ? 12 : 14,
+    fontWeight: 600,
+    color: "#fff",
+    letterSpacing: 0.3,
+  }}
+>
+  {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : ""}
+</span>
 
         <div style={{ width: 1, height: 16, background: "#333" }} />
 
