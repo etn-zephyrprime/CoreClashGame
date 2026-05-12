@@ -3242,21 +3242,94 @@ onClick={createGame} // <-- THIS IS REQUIRED
   </button>
 </div>
 
-    {account?.toLowerCase() === ADMIN_ADDRESS ? (
-      <>
-        <button type="button" onClick={loadGames}>🔄 Refresh Games</button>
-        <button onClick={async () => {
-          await fetch(`${BACKEND_URL}/admin/resync-games`, { method: "POST" });
+{account?.toLowerCase() === ADMIN_ADDRESS ? (
+  <div
+    style={{
+      background: "#0f0f0f",
+      border: "1px solid #2a2a2a",
+      borderRadius: 14,
+      padding: "10px 12px",
+      marginBottom: 12,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 10,
+      boxShadow: "0 0 10px rgba(0,0,0,0.35)",
+    }}
+  >
+    <div
+      style={{
+        fontSize: 11,
+        color: "#888",
+        textTransform: "uppercase",
+        letterSpacing: 1.2,
+      }}
+    >
+      Game Controls
+    </div>
+
+    <div style={{ display: "flex", gap: 10 }}>
+      <button
+        type="button"
+        onClick={loadGames}
+        style={{
+          background: "#151515",
+          border: "1px solid #2f2f2f",
+          color: "#18bb1a",
+          padding: "6px 12px",
+          borderRadius: 10,
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.borderColor = "#18bb1a")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.borderColor = "#2f2f2f")
+        }
+      >
+        🔄 Refresh
+      </button>
+
+      <button
+        onClick={async () => {
+          await fetch(`${BACKEND_URL}/admin/resync-games`, {
+            method: "POST",
+          });
           await loadGames();
           alert("Resync complete");
-        }}>
-          🛠 Resync from Chain
-        </button>
-      </>
-    ) : (
-      <div style={{ marginBottom: 12 }} />
-    )}
+        }}
+        style={{
+          background: "#18bb1a",
+          border: "1px solid #18bb1a",
+          color: "#050505",
+          padding: "6px 12px",
+          borderRadius: 10,
+          fontSize: 12,
+          fontWeight: 800,
+          cursor: "pointer",
+          boxShadow: "0 0 8px rgba(24,187,26,0.35)",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.boxShadow =
+            "0 0 14px rgba(24,187,26,0.6)")
+        }
+        onMouseLeave={(e) =>
+          (e.currentTarget.style.boxShadow =
+            "0 0 8px rgba(24,187,26,0.35)")
+        }
+      >
+        🛠 Resync
+      </button>
+    </div>
   </div>
+) : (
+  <div style={{ marginBottom: 12 }} />
+)}
 
 <div style={{ marginTop: 40, marginBottom: 10 }}>
   <div
@@ -3937,6 +4010,7 @@ onClick={createGame} // <-- THIS IS REQUIRED
       </div>
     </div>
   )}
+</div>
 </div>
 </div>
 </div>
