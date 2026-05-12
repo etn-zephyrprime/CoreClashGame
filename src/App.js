@@ -11,7 +11,7 @@ import { ethers } from "ethers";
 import GameABI from "./abis/GameABI.json";
 import ERC20ABI from "./abis/ERC20ABI.json";
 
-import CoreClashWalletButton, { useCoreClashWallet } from "./wallet/coreClashWallet.jsx";
+import { useCoreClashWallet } from "./wallet/coreClashWallet.jsx";
 
 import {
   GAME_ADDRESS,
@@ -52,6 +52,7 @@ const {
   provider,
   account,
   isConnected,
+  walletStatus,
   connectWallet,
   disconnectWallet,
   ensureCorrectNetwork,

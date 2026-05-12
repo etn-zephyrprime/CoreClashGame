@@ -1,16 +1,21 @@
-import React, { useEffect, useMemo, useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { ethers } from "ethers";
 import {
   createAppKit,
   useAppKit,
   useAppKitAccount,
+  useAppKitNetwork,
   useAppKitProvider,
   useDisconnect,
 } from "@reown/appkit/react";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
 import { defineChain } from "@reown/appkit/networks";
 
-import { RPC_URL, CHAIN_ID, EXPLORER_BASE_URL } from "../config.js";
+import {
+  RPC_URL,
+  CHAIN_ID,
+  EXPLORER_BASE_URL,
+} from "../config.js";
 
 const PROJECT_ID = "146ee334d324044083b6427d4bbf9202";
 
@@ -60,6 +65,7 @@ export const appKitModal = createAppKit({
 export function useCoreClashWallet() {
   const { open } = useAppKit();
   const { disconnect } = useDisconnect();
+  const { switchNetwork, caipNetwork } = useAppKitNetwork();
 
   const { address, isConnected, status } = useAppKitAccount({
     namespace: "eip155",
@@ -68,13 +74,12 @@ export function useCoreClashWallet() {
   const { walletProvider } = useAppKitProvider("eip155");
 
   const provider = useMemo(() => {
-    if (!walletProvider) return null;
-    return new ethers.BrowserProvider(walletProvider);
-  }, [walletProvider]);
+    if (walletProvider && isConnected) {
+      return new ethers.BrowserProvider(walletProvider);
+    }
 
-  const rpcProvider = useMemo(() => {
     return new ethers.JsonRpcProvider(RPC_URL);
-  }, []);
+  }, [walletProvider, isConnected]);
 
   const connectWallet = useCallback(async () => {
     await open({
@@ -88,26 +93,21 @@ export function useCoreClashWallet() {
   }, [disconnect]);
 
   const ensureCorrectNetwork = useCallback(async () => {
-    if (!isConnected || !walletProvider) return;
-
-    const network = await provider.getNetwork();
-    const chainId = Number(network.chainId);
-
-    if (chainId !== CHAIN_ID) {
-      await appKitModal.switchNetwork(electroneum);
+    if (!isConnected || !walletProvider) {
+      throw new Error("Wallet not connected");
     }
-  }, [isConnected, walletProvider, provider]);
 
-  useEffect(() => {
-    if (!isConnected || !walletProvider || !provider) return;
+    const currentChainId = caipNetwork?.id
+      ? Number(caipNetwork.id)
+      : null;
 
-    ensureCorrectNetwork().catch((err) => {
-      console.warn("Network check failed:", err);
-    });
-  }, [isConnected, walletProvider, provider, ensureCorrectNetwork]);
+    if (currentChainId !== CHAIN_ID) {
+      await switchNetwork(electroneum);
+    }
+  }, [isConnected, walletProvider, caipNetwork, switchNetwork]);
 
   return {
-    provider: provider ?? rpcProvider,
+    provider,
     account: address || null,
     isConnected,
     walletStatus: status,
@@ -115,27 +115,4 @@ export function useCoreClashWallet() {
     disconnectWallet,
     ensureCorrectNetwork,
   };
-}
-
-export default function CoreClashWalletButton({ account }) {
-  const { connectWallet, disconnectWallet, isConnected } = useCoreClashWallet();
-
-  return (
-    <button
-      onClick={isConnected ? disconnectWallet : connectWallet}
-      style={{
-        background: isConnected ? "#181818" : "#18bb1a",
-        color: isConnected ? "#18bb1a" : "#050505",
-        border: "1px solid #18bb1a",
-        borderRadius: 10,
-        padding: "10px 14px",
-        fontWeight: 800,
-        cursor: "pointer",
-      }}
-    >
-      {isConnected && account
-        ? `${account.slice(0, 6)}...${account.slice(-4)}`
-        : "Connect Wallet"}
-    </button>
-  );
 }
