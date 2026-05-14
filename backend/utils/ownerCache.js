@@ -36,14 +36,23 @@ export function readOwnerCache() {
   try {
     const raw = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
 
-    // Normalize ALL keys to lowercase
     const normalized = {};
+
+    if (raw._meta) {
+      normalized._meta = raw._meta;
+    }
+
     for (const wallet in raw) {
+      if (wallet === "_meta") continue;
+
       const lowerWallet = wallet.toLowerCase();
       normalized[lowerWallet] = raw[wallet];
     }
 
-    console.log(`Loaded owner cache with ${Object.keys(normalized).length} wallets (normalized)`);
+    console.log(
+      `Loaded owner cache with ${Object.keys(normalized).filter((k) => k !== "_meta").length} wallets (normalized)`
+    );
+
     return normalized;
   } catch (err) {
     console.error("Failed to read owner cache:", err.message);
@@ -54,17 +63,36 @@ export function readOwnerCache() {
 // In writeOwnerCache — normalize key before writing
 export function writeOwnerCache(cache) {
   ensureCacheDir();
+
   try {
     const normalizedCache = {};
+
+    if (cache._meta) {
+      normalizedCache._meta = cache._meta;
+    }
+
     for (const wallet in cache) {
+      if (wallet === "_meta") continue;
+
       const lowerWallet = wallet.toLowerCase();
       normalizedCache[lowerWallet] = cache[wallet];
     }
 
     console.log("💾 Writing cache to:", CACHE_FILE);
 
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(normalizedCache, null, 2), "utf8");
-    console.log(`💾 Owner cache written (${Object.keys(normalizedCache).length} wallets, all lowercase)`);
+    const tempFile = `${CACHE_FILE}.tmp`;
+
+    fs.writeFileSync(
+      tempFile,
+      JSON.stringify(normalizedCache, null, 2),
+      "utf8"
+    );
+
+    fs.renameSync(tempFile, CACHE_FILE);
+
+    console.log(
+      `💾 Owner cache written (${Object.keys(normalizedCache).filter((k) => k !== "_meta").length} wallets, all lowercase)`
+    );
   } catch (err) {
     console.error("Failed to write owner cache:", err.message);
   }

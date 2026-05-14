@@ -215,21 +215,15 @@ try {
 
         const freshCache = readOwnerCache();
 
-        if (!freshCache[player1Lc]) {
-          freshCache[player1Lc] = {
-            VKIN: vkinIds,
-            VQLE: vqleIds,
-            SCIONS: scionsIds,
-            EVG: evgIds,
-          };
+freshCache[player1Lc] = {
+  ...(freshCache[player1Lc] || {}),
+  VKIN: vkinIds,
+  VQLE: vqleIds,
+  SCIONS: scionsIds,
+  EVG: evgIds,
+};
 
-          writeOwnerCache(freshCache);
-          console.log(
-            `Cache populated for ${player1Lc}: ${vkinIds.length} VKIN, ${vqleIds.length} VQLE, ${scionsIds.length} SCIONS, ${evgIds.length} EVG`
-          );
-        } else {
-          console.log(`Owner cache already exists for ${player1Lc}, skipping write`);
-        }
+writeOwnerCache(freshCache);
       } catch (err) {
         console.error("Failed to populate creator cache:", err.message, err.stack);
       }

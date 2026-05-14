@@ -96,34 +96,40 @@ async function updateMultipleWalletCaches(wallets, collection) {
 
   const contractInstance = contractMap[collection];
 
-  for (const wallet of uniqueWallets) {
-    try {
-      const existing = cache[wallet] || { VKIN: [], VQLE: [], SCIONS: [], EVG: [] };
+let changed = false;
 
-      const refreshedTokenIds = await fetchOwnedTokenIds(
-        contractInstance,
-        wallet,
-        collection
-      );
+for (const wallet of uniqueWallets) {
+  try {
+    const existing = cache[wallet] || { VKIN: [], VQLE: [], SCIONS: [], EVG: [] };
 
-      cache[wallet] = {
-        ...existing,
-        [collection]: refreshedTokenIds,
-      };
+    const refreshedTokenIds = await fetchOwnedTokenIds(
+      contractInstance,
+      wallet,
+      collection
+    );
 
-      console.log(
-        `[AUTO-CACHE] Prepared ${wallet}: ${collection}=${refreshedTokenIds.length}`
-      );
-    } catch (err) {
-      console.error(
-        `[AUTO-CACHE] Failed preparing ${collection} cache for ${wallet}:`,
-        err.message || err
-      );
-    }
+    cache[wallet] = {
+      ...existing,
+      [collection]: refreshedTokenIds,
+    };
+
+    changed = true;
+
+    console.log(
+      `[AUTO-CACHE] Prepared ${wallet}: ${collection}=${refreshedTokenIds.length}`
+    );
+  } catch (err) {
+    console.error(
+      `[AUTO-CACHE] Failed preparing ${collection} cache for ${wallet}. Not updating this wallet:`,
+      err.message || err
+    );
   }
+}
 
+if (changed) {
   writeOwnerCache(cache);
   console.log(`[AUTO-CACHE] Batch ${collection} cache write complete`);
+}
 }
 
 // ── POLLING LOOP ──
