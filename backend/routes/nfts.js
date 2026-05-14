@@ -15,6 +15,7 @@ import EVG_ABI from "../../src/abis/EVGABI.json" with { type: "json" };
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const RETRY_COUNT = 3; 
 const RETRY_DELAY_MS = 1000;
+const forceRefresh = req.query.refresh === "true";
 
 // Retry wrapper
 async function retryRpc(fn, retries = RETRY_COUNT, delayMs = RETRY_DELAY_MS) {
@@ -162,10 +163,10 @@ const hasCachedCollection = (collection) =>
   Object.prototype.hasOwnProperty.call(walletCache, collection) &&
   Array.isArray(walletCache[collection]);
 
-const shouldScanVKIN = !hasCachedCollection("VKIN");
-const shouldScanVQLE = !hasCachedCollection("VQLE");
-const shouldScanSCIONS = !hasCachedCollection("SCIONS");
-const shouldScanEVG = !hasCachedCollection("EVG");
+const shouldScanVKIN = forceRefresh || !hasCachedCollection("VKIN");
+const shouldScanVQLE = forceRefresh || !hasCachedCollection("VQLE");
+const shouldScanSCIONS = forceRefresh || !hasCachedCollection("SCIONS");
+const shouldScanEVG = forceRefresh || !hasCachedCollection("EVG");
 
 if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS || shouldScanEVG) {
   console.log("Partial cache — scanning missing collections for", wallet, {
