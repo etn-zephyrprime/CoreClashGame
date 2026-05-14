@@ -685,7 +685,7 @@ for (const aggregated of dedupedSwaps) {
 
 // ✅ ALWAYS send to "all swaps" group
 // 🔴 Small swaps → ALL_SWAPS
-if (finalUsdValue < minUsdThreshold) {
+//if (finalUsdValue < minUsdThreshold) { COMMENT THIS IN TO FILTER SMALL SWAPS IN ENTIRELY
   await sendSwapMessage({
     symbol: aggregated.symbol,
     side: isSell ? "SELL" : "BUY",
@@ -702,7 +702,7 @@ if (finalUsdValue < minUsdThreshold) {
     animationFileId: aggregated.animationFileId || null,
     destination: "ALL_SWAPS",
   });
-}
+//} COMMENT THIS IN TO FILTER SMALL SWAPS IN ENTIRELY
 
 // ✅ Only send to main alerts if above threshold
 if (finalUsdValue >= minUsdThreshold) {
