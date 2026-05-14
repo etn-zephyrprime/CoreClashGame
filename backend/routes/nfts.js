@@ -15,7 +15,6 @@ import EVG_ABI from "../../src/abis/EVGABI.json" with { type: "json" };
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const RETRY_COUNT = 3; 
 const RETRY_DELAY_MS = 1000;
-const forceRefresh = req.query.refresh === "true";
 
 // Retry wrapper
 async function retryRpc(fn, retries = RETRY_COUNT, delayMs = RETRY_DELAY_MS) {
@@ -154,6 +153,7 @@ const evgIds = await retryRpc(() => fetchOwnedTokenIds(evg, wallet, "EVG"));
 // GET /owned/:wallet
 router.get("/owned/:wallet", async (req, res) => {
   const wallet = req.params.wallet.toLowerCase();
+  const forceRefresh = req.query.refresh === "true";
   console.log("🔎 Owned NFTs request for:", wallet);
 
 const cache = readOwnerCache();
