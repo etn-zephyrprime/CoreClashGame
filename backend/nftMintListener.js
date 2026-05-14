@@ -15,6 +15,41 @@ const REORG_BUFFER_BLOCKS = 2;
 const processingMintLogs = new Set();
 const announcedMintLogs = new Set();
 
+let isPolling = false;
+let rateLimitedUntil = 0;
+
+function isRateLimitError(err) {
+  const msg = JSON.stringify(err);
+  return (
+    err?.code === "BAD_DATA" ||
+    msg.includes("Too many requests") ||
+    msg.includes("rate limit") ||
+    msg.includes("call rate limit exhausted") ||
+    msg.includes("-32090")
+  );
+}
+
+async function rpcCall(label, fn, retries = 4) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isRateLimitError(err) || attempt === retries) {
+        throw err;
+      }
+
+      const waitMs = Math.min(10_000 * attempt, 60_000);
+      rateLimitedUntil = Date.now() + waitMs;
+
+      console.warn(
+        `[NFT MINT] RPC rate limited during ${label}. Retrying in ${waitMs / 1000}s`
+      );
+
+      await delay(waitMs);
+    }
+  }
+}
+
 function mintLogKey(log) {
   return `${log.transactionHash}:${log.index ?? log.logIndex}`;
 }
@@ -59,9 +94,22 @@ async function waitForNftImage({
 }
 
 export async function startNftMintListener() {
-  async function poll() {
-    try {
-const latest = await provider.getBlockNumber();
+async function poll() {
+  if (isPolling) {
+    console.warn("[NFT MINT] Previous poll still running, skipping this tick");
+    return;
+  }
+
+  if (Date.now() < rateLimitedUntil) {
+    return;
+  }
+
+  isPolling = true;
+
+  try {
+const latest = await rpcCall("getBlockNumber", () =>
+  provider.getBlockNumber()
+);
 let fromBlockRaw = await loadLastBlockLocked("nft_mints");
 let fromBlock = Number(fromBlockRaw);
 
@@ -81,12 +129,14 @@ if (!Number.isFinite(fromBlock) || !Number.isFinite(toBlock)) {
 
       if (toBlock < fromBlock) return;
 
-      const logs = await provider.getLogs({
-        address: NFT_COLLECTIONS.map((c) => c.address),
-        topics: [TRANSFER_TOPIC],
-        fromBlock,
-        toBlock,
-      });
+const logs = await rpcCall("getLogs", () =>
+  provider.getLogs({
+    address: NFT_COLLECTIONS.map((c) => c.address),
+    topics: [TRANSFER_TOPIC],
+    fromBlock,
+    toBlock,
+  })
+);
 
 for (const log of logs) {
   const key = mintLogKey(log);
@@ -118,7 +168,9 @@ for (const log of logs) {
     let minter = to;
 
     try {
-      const tx = await provider.getTransaction(log.transactionHash);
+const tx = await rpcCall("getTransaction", () =>
+  provider.getTransaction(log.transactionHash)
+);
       if (tx?.from) {
         minter = String(tx.from).toLowerCase();
       }
@@ -138,7 +190,9 @@ for (const log of logs) {
         provider
       );
 
-      tokenURI = await nft.tokenURI(tokenId);
+tokenURI = await rpcCall("tokenURI", () =>
+  nft.tokenURI(tokenId)
+);
     } catch (err) {
       console.warn(
         `[NFT MINT] tokenURI lookup failed for ${contractAddress} #${tokenId}:`,
@@ -203,10 +257,22 @@ if (!Number.isFinite(nextBlock)) {
 }
 await saveLastBlockLocked("nft_mints", nextBlock);
     } catch (err) {
-      console.error("[NFT MINT] Poll failed:", err);
+      if (isRateLimitError(err)) {
+        rateLimitedUntil = Date.now() + 10_000;
+        console.warn("[NFT MINT] Poll rate limited. Pausing for 10s.");
+      } else {
+        console.error("[NFT MINT] Poll failed:", err);
+      }
+    } finally {
+      isPolling = false;
     }
   }
 
-  await poll();
-  setInterval(poll, POLL_INTERVAL_MS);
+await poll();
+
+setInterval(() => {
+  poll().catch((err) => {
+    console.error("[NFT MINT] Unhandled poll error:", err);
+  });
+}, POLL_INTERVAL_MS);
 }

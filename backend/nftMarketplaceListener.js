@@ -10,7 +10,7 @@ const provider = new ethers.JsonRpcProvider(RPC_URL);
 const SEAPORT_ADDRESS = "0x678748317e7fD5B7699D07e666087608B401cbFd".toLowerCase();
 
 const POLL_INTERVAL_MS = 60000;
-const MAX_BLOCK_RANGE = 500;
+const MAX_BLOCK_RANGE = 100;
 const REORG_BUFFER_BLOCKS = 2;
 
 const SEAPORT_ABI = [
@@ -30,6 +30,44 @@ const ERC20_MIN_ABI = [
 const ITEM_TYPE_NATIVE = 0;
 const ITEM_TYPE_ERC20 = 1;
 const ITEM_TYPE_ERC721 = 2;
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let isPolling = false;
+let rateLimitedUntil = 0;
+
+function isRateLimitError(err) {
+  const msg = JSON.stringify(err);
+
+  return (
+    err?.code === "BAD_DATA" ||
+    msg.includes("Too many requests") ||
+    msg.includes("rate limit") ||
+    msg.includes("call rate limit exhausted") ||
+    msg.includes("-32090")
+  );
+}
+
+async function rpcCall(label, fn, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isRateLimitError(err) || attempt === retries) {
+        throw err;
+      }
+
+      const waitMs = Math.min(10_000 * attempt, 60_000);
+      rateLimitedUntil = Date.now() + waitMs;
+
+      console.warn(
+        `[RPC RATE LIMIT] ${label} failed. Retrying in ${waitMs / 1000}s...`
+      );
+
+      await delay(waitMs);
+    }
+  }
+}
 
 function findTrackedErc721OfferItem(items) {
   for (const item of items || []) {
@@ -98,10 +136,13 @@ async function resolveCurrencyMeta(paymentToken, paymentItemType) {
 
   try {
     const token = new ethers.Contract(paymentToken, ERC20_MIN_ABI, provider);
-    const [symbol, decimals] = await Promise.all([
-      token.symbol(),
-      token.decimals(),
-    ]);
+const symbol = await rpcCall(`ERC20.symbol(${paymentToken})`, () =>
+  token.symbol()
+);
+
+const decimals = await rpcCall(`ERC20.decimals(${paymentToken})`, () =>
+  token.decimals()
+);
 
     return {
       symbol: String(symbol),
@@ -114,9 +155,22 @@ async function resolveCurrencyMeta(paymentToken, paymentItemType) {
 }
 
 export async function startNftMarketplaceListener() {
-  async function poll() {
-    try {
-      const latest = await provider.getBlockNumber();
+async function poll() {
+  if (isPolling) {
+    console.warn("[NFT MARKET] Previous poll still running, skipping tick");
+    return;
+  }
+
+  if (Date.now() < rateLimitedUntil) {
+    return;
+  }
+
+  isPolling = true;
+
+  try {
+    const latest = await rpcCall("NFT MARKET getBlockNumber", () =>
+      provider.getBlockNumber()
+    );
       let fromBlockRaw = await loadLastBlockLocked("nft_market");
       let fromBlock = Number(fromBlockRaw);
 
@@ -135,19 +189,17 @@ export async function startNftMarketplaceListener() {
 
       if (toBlock < fromBlock) return;
 
-      const logs = await provider.getLogs({
-        address: SEAPORT_ADDRESS,
-        fromBlock,
-        toBlock,
-      });
+const logs = await rpcCall("NFT MARKET getLogs", () =>
+  provider.getLogs({
+    address: SEAPORT_ADDRESS,
+    topics: [ORDER_FULFILLED_TOPIC],
+    fromBlock,
+    toBlock,
+  })
+);
 
       for (const log of logs) {
         try {
-          const topic0 = log.topics?.[0];
-          if (!topic0) continue;
-
-          if (topic0 !== ORDER_FULFILLED_TOPIC) continue;
-
           const parsed = iface.parseLog(log);
           const offerer = String(parsed.args.offerer).toLowerCase();
           const recipient = String(parsed.args.recipient).toLowerCase();
@@ -230,11 +282,23 @@ if (nftInConsideration) {
       }
 
       await saveLastBlockLocked("nft_market", toBlock + 1);
-    } catch (err) {
-      console.error("[NFT MARKET] Poll failed:", err);
-    }
+} catch (err) {
+  if (isRateLimitError(err)) {
+    rateLimitedUntil = Date.now() + 10_000;
+    console.warn("[NFT MARKET] Poll rate limited. Pausing for 10s.");
+  } else {
+    console.error("[NFT MARKET] Poll failed:", err);
+  }
+} finally {
+  isPolling = false;
+}
   }
 
-  await poll();
-  setInterval(poll, POLL_INTERVAL_MS);
+await poll();
+
+setInterval(() => {
+  poll().catch((err) => {
+    console.error("[NFT MARKET] Unhandled poll error:", err);
+  });
+}, POLL_INTERVAL_MS);
 }
