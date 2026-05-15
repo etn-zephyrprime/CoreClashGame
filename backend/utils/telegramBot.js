@@ -28,6 +28,9 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ZEPHYROS_TELEGRAM_BOT_TOKEN = process.env.ZEPHYROS_TELEGRAM_BOT_TOKEN;
 const TELEGRAM_GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID;
 const ZEPHYROS_NFT_MESSAGE_THREAD_ID = 782;
+const ZEPHYROS_GENERAL_MESSAGE_THREAD_ID = process.env.ZEPHYROS_GENERAL_MESSAGE_THREAD_ID
+  ? Number(process.env.ZEPHYROS_GENERAL_MESSAGE_THREAD_ID)
+  : null;
 
 import {
   readAdvertState,
@@ -287,6 +290,86 @@ export async function sendTelegramGroupMessage(text, options = {}) {
     console.error("sendTelegramGroupMessage failed:", err.message);
     throw err;
   }
+}
+
+export async function sendZephyrosCoreSwapMessage({
+  side,
+  baseAmount,
+  quoteAmount,
+  quoteSymbol,
+  trader,
+  txHash,
+  usdValue,
+  tokenPriceUsd,
+  animationFileId,
+  animationUrl,
+}) {
+  if (!isZephyrosTelegramConfigured()) {
+    console.warn("[Zephyros] Bot not configured; skipping CORE swap message");
+    return null;
+  }
+
+  const txUrl = `${EXPLORER_BASE_URL}/tx/${txHash}`;
+  const traderUrl = `${EXPLORER_BASE_URL}/address/${trader}`;
+
+  const isSell = side === "SELL";
+const emojiSequence = isSell
+  ? ["🌎", "🌳"] // sell
+  : ["🌳", "🌎"]; // buy
+
+const emojiCount =
+  usdValue != null && Number.isFinite(usdValue)
+    ? Math.max(1, Math.floor(usdValue / 5))
+    : 1;
+
+const cappedCount = Math.min(emojiCount, 50);
+
+const emojiLine = Array.from(
+  { length: cappedCount },
+  (_, i) => emojiSequence[i % emojiSequence.length]
+).join("");
+
+const caption =
+  `<b>CORE ${escapeHtml(side)}</b> ($${formatUsd(usdValue)})\n` +
+  `${emojiLine}\n\n` +
+    `💰 <b>${isSell ? "Received" : "Paid"}:</b> ${escapeHtml(quoteAmount)} ${escapeHtml(quoteSymbol)}\n` +
+    `🔢 <b>Amount:</b> ${escapeHtml(baseAmount)} CORE\n` +
+    (
+      tokenPriceUsd != null && Number.isFinite(tokenPriceUsd)
+        ? `💵 <b>CORE Price:</b> $${formatUsdPrice(tokenPriceUsd)}\n`
+        : ""
+    ) +
+    `\n👤 <b>Buyer:</b> <a href="${traderUrl}">${escapeHtml(shortAddr(trader))}</a>\n` +
+    `🔗 <a href="${txUrl}">View Transaction</a>` +
+    buildFooter();
+
+  const basePayload = {
+    chat_id: TELEGRAM_GROUP_CHAT_ID,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+  };
+
+  if (
+    ZEPHYROS_GENERAL_MESSAGE_THREAD_ID != null &&
+    Number.isFinite(ZEPHYROS_GENERAL_MESSAGE_THREAD_ID)
+  ) {
+    basePayload.message_thread_id = ZEPHYROS_GENERAL_MESSAGE_THREAD_ID;
+  }
+
+  // Buys use CORE gif.
+  if (!isSell && (animationFileId || animationUrl)) {
+    return telegramRequest(ZEPHYROS_TELEGRAM_API_BASE, "sendAnimation", {
+      ...basePayload,
+      animation: animationFileId || animationUrl,
+      caption,
+    });
+  }
+
+  // Sells are plain text only.
+  return telegramRequest(ZEPHYROS_TELEGRAM_API_BASE, "sendMessage", {
+    ...basePayload,
+    text: caption,
+  });
 }
 
 export async function sendZephyrosAnimationMessage({
