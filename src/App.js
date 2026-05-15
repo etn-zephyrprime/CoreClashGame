@@ -2853,27 +2853,45 @@ return (
       flexShrink: 0,
     }}
   >
-    <button
-      type="button"
-      onClick={refreshNftGallery}
-      disabled={nftRefreshLoading || Date.now() < nftRefreshCooldownUntil}
-      style={{
-        background: nftRefreshLoading ? "#101010" : "#151515",
-        border: "1px solid #2f2f2f",
-        borderRadius: 10,
-        color: nftRefreshLoading ? "#777" : "#18bb1a",
-        fontSize: 12,
-        fontWeight: 700,
-        padding: "8px 10px",
-        cursor:
-          nftRefreshLoading || Date.now() < nftRefreshCooldownUntil
-            ? "not-allowed"
-            : "pointer",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {nftRefreshLoading ? "Refreshing..." : "Refresh NFTs"}
-    </button>
+<button
+  type="button"
+  onClick={(e) => {
+    e.stopPropagation();
+
+    if (!account) {
+      setNftRefreshMessage("Connect your wallet before refreshing NFTs.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Refresh your NFT cache? This may take a few minutes."
+    );
+
+    if (!confirmed) return;
+
+    refreshNftGallery(e);
+  }}
+  disabled={!account || nftRefreshLoading || Date.now() < nftRefreshCooldownUntil}
+  style={{
+    background: nftRefreshLoading ? "#101010" : "#151515",
+    border: "1px solid #2f2f2f",
+    borderRadius: 10,
+    color:
+      !account || nftRefreshLoading || Date.now() < nftRefreshCooldownUntil
+        ? "#777"
+        : "#18bb1a",
+    fontSize: 12,
+    fontWeight: 700,
+    padding: "8px 10px",
+    cursor:
+      !account || nftRefreshLoading || Date.now() < nftRefreshCooldownUntil
+        ? "not-allowed"
+        : "pointer",
+    whiteSpace: "nowrap",
+  }}
+>
+  {nftRefreshLoading ? "Refreshing..." : "Refresh NFTs"}
+</button>
 
     <div
       style={{
