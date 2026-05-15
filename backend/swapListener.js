@@ -215,19 +215,21 @@ const displayQuoteSymbol = knownSymbol(
         trackedTokens: [],
       };
 
-      existing.trackedTokens.push({
-        symbol: baseSymbol || trackedFallbackSymbol,
-        address: baseTokenAddress,
-        decimals: Number(baseDecimals),
-        quoteSymbol: displayQuoteSymbol,
-        quoteAddress: quoteTokenAddress,
-        quoteDecimals: Number(quoteDecimals),
-        trackedIsToken0: baseTokenAddress.toLowerCase() === token0.toLowerCase(),
-        imageFileId: tracked.imageFileId || null,
-        image: tracked.image || null,
-        animationUrl: tracked.animationUrl || null,
-        animationFileId: tracked.animationFileId || null,
-      });
+existing.trackedTokens.push({
+  symbol: baseSymbol || trackedFallbackSymbol,
+  address: baseTokenAddress,
+  decimals: Number(baseDecimals),
+  quoteSymbol: displayQuoteSymbol,
+  quoteAddress: quoteTokenAddress,
+  quoteDecimals: Number(quoteDecimals),
+  trackedIsToken0: baseTokenAddress.toLowerCase() === token0.toLowerCase(),
+  imageFileId: tracked.imageFileId || null,
+  image: tracked.image || null,
+  animationUrl: tracked.animationUrl || null,
+  animationFileId: tracked.animationFileId || null,
+  zephyrosAnimationFileId:
+  tracked.zephyrosAnimationFileId || null,
+});
 
       poolMap.set(poolAddress.toLowerCase(), existing);
       allWatchedPoolAddresses.add(poolAddress);
@@ -596,6 +598,8 @@ addToAggregate(aggregatedSwaps, aggregateKey, {
   image: trackedMeta.image || null,
   animationUrl: trackedMeta.animationUrl || null,
   animationFileId: trackedMeta.animationFileId || null,
+  zephyrosAnimationFileId:
+  trackedMeta.zephyrosAnimationFileId || null,
 });
           } catch (err) {
             console.error("[SwapListener] Failed processing tracked token swap:", err);
@@ -704,7 +708,12 @@ if (shouldSendToZephyrosGeneral) {
     txHash: aggregated.txHash,
     usdValue: finalUsdValue,
     tokenPriceUsd,
-    animationFileId: isSell ? null : aggregated.animationFileId,
+    animationFileId: isSell
+      ? null
+      : (
+    aggregated.zephyrosAnimationFileId ||
+    aggregated.animationFileId
+    ),
     animationUrl: isSell ? null : aggregated.animationUrl,
   });
 }

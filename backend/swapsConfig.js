@@ -38,17 +38,25 @@ export const TRACKED_TOKENS = [
     ],
   },
 
-  {
-    symbol: "CORE",
-    address: process.env.CORE_TOKEN_ADDRESS,
-    animationFileId: "CgACAgQAAxkBAAMUaeVPB7KE3I4HyzQbVWApm86iGPkAApgeAAL9hyhTxYC3rKcDPdk7BA",
-    pools: [
-      {
-        address: "0xc3FE6f98765493aB62AD87C9B5022Ff2FAA2e98D",
-        dex: "UNIV2", // confirm
-      },
-    ],
-  },
+{
+  symbol: "CORE",
+  address: process.env.CORE_TOKEN_ADDRESS,
+
+  // CLUB bot animation
+  animationFileId:
+    "CgACAgQAAxkBAAMUaeVPB7KE3I4HyzQbVWApm86iGPkAApgeAAL9hyhTxYC3rKcDPdk7BA",
+
+  // Zephyros bot animation
+  zephyrosAnimationFileId:
+    "CgACAgQAAxkBAAMFageBD-eZV-B_uGg2Y72GurOfNFoAApgeAAL9hyhTCD9skqLLhrY7BA",
+
+  pools: [
+    {
+      address: "0xc3FE6f98765493aB62AD87C9B5022Ff2FAA2e98D",
+      dex: "UNIV2",
+    },
+  ],
+},
 
   {
     symbol: "USDT",
