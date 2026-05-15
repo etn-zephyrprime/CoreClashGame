@@ -115,6 +115,10 @@ useEffect(() => {
   console.groupEnd();
 }, [nfts]);
 
+const [nftRefreshLoading, setNftRefreshLoading] = useState(false);
+const [nftRefreshMessage, setNftRefreshMessage] = useState("");
+const [nftRefreshCooldownUntil, setNftRefreshCooldownUntil] = useState(0);
+
 /* ---------------- MAPPING (CSV → JSON) ---------------- */
 const [mapping, setMapping] = useState({});
 
@@ -338,6 +342,44 @@ if (data.length === 0) {
 
   fetchOwned();
 }, [account]);
+
+const refreshNftGallery = async (e) => {
+  e.stopPropagation();
+
+  if (!account || nftRefreshLoading) return;
+
+  const now = Date.now();
+  if (now < nftRefreshCooldownUntil) {
+    setNftRefreshMessage("Please wait a few minutes before refreshing again.");
+    return;
+  }
+
+  setNftRefreshLoading(true);
+  setNftRefreshMessage("Refreshing NFT cache... this may take a few minutes.");
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/nfts/owned/${account}?refresh=true`);
+
+    if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      setNftRefreshMessage(data.error || "Refresh is on cooldown.");
+      return;
+    }
+
+    if (!res.ok) throw new Error("Refresh failed");
+
+    const freshNfts = await res.json();
+    setOwnedNFTs(freshNfts); // change if your setter has a different name
+
+    setNftRefreshCooldownUntil(Date.now() + 5 * 60 * 1000);
+    setNftRefreshMessage("NFT gallery refreshed.");
+  } catch (err) {
+    console.error("NFT refresh failed:", err);
+    setNftRefreshMessage("Refresh failed. Please try again shortly.");
+  } finally {
+    setNftRefreshLoading(false);
+  }
+};
 
   /* ---------------- NFT UPDATE ---------------- */
   const updateNFT = (idx, field, value) => {
@@ -2754,52 +2796,84 @@ return (
   }}
 >
   {/* Header */}
-  <button
-    type="button"
-    onClick={() => setShowNftGallery((prev) => !prev)}
+<div
+  role="button"
+  tabIndex={0}
+  onClick={() => setShowNftGallery((prev) => !prev)}
+  style={{
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    padding: "14px 16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    cursor: "pointer",
+    textAlign: "left",
+    boxSizing: "border-box",
+  }}
+>
+  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div
+      style={{
+        fontSize: 12,
+        color: "#888",
+        textTransform: "uppercase",
+        letterSpacing: 1.1,
+      }}
+    >
+      NFT Gallery
+    </div>
+
+    <div
+      style={{
+        fontSize: 14,
+        fontWeight: 700,
+        color: "#fff",
+      }}
+    >
+      {selectedNftCount}/3 Selected
+    </div>
+
+    <div
+      style={{
+        fontSize: 12,
+        color: "#9a9a9a",
+      }}
+    >
+      Browse and select your battle lineup
+    </div>
+  </div>
+
+  <div
     style={{
-      width: "100%",
-      background: "transparent",
-      border: "none",
-      padding: "14px 16px",
       display: "flex",
       alignItems: "center",
-      justifyContent: "space-between",
-      cursor: "pointer",
-      textAlign: "left",
+      gap: 8,
+      flexShrink: 0,
     }}
   >
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div
-        style={{
-          fontSize: 12,
-          color: "#888",
-          textTransform: "uppercase",
-          letterSpacing: 1.1,
-        }}
-      >
-        NFT Gallery
-      </div>
-
-      <div
-        style={{
-          fontSize: 14,
-          fontWeight: 700,
-          color: "#fff",
-        }}
-      >
-        {selectedNftCount}/3 Selected
-      </div>
-
-      <div
-        style={{
-          fontSize: 12,
-          color: "#9a9a9a",
-        }}
-      >
-        Browse and select your battle lineup
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={refreshNftGallery}
+      disabled={nftRefreshLoading || Date.now() < nftRefreshCooldownUntil}
+      style={{
+        background: nftRefreshLoading ? "#101010" : "#151515",
+        border: "1px solid #2f2f2f",
+        borderRadius: 10,
+        color: nftRefreshLoading ? "#777" : "#18bb1a",
+        fontSize: 12,
+        fontWeight: 700,
+        padding: "8px 10px",
+        cursor:
+          nftRefreshLoading || Date.now() < nftRefreshCooldownUntil
+            ? "not-allowed"
+            : "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {nftRefreshLoading ? "Refreshing..." : "Refresh NFTs"}
+    </button>
 
     <div
       style={{
@@ -2819,7 +2893,22 @@ return (
     >
       {showNftGallery ? "−" : "+"}
     </div>
-  </button>
+  </div>
+</div>
+
+{nftRefreshMessage && (
+  <div
+    style={{
+      padding: "0 16px 12px 16px",
+      fontSize: 12,
+      color: nftRefreshMessage.toLowerCase().includes("failed")
+        ? "#ff6b6b"
+        : "#9a9a9a",
+    }}
+  >
+    {nftRefreshMessage}
+  </div>
+)}
 
 {/* Selected NFT preview while collapsed */}
 {!showNftGallery && selectedNftCount > 0 && (
