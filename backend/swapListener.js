@@ -27,6 +27,50 @@ const UNIV3_POOL_ABI = [
   "event Swap(address indexed sender,address indexed recipient,int256 amount0,int256 amount1,uint160 sqrtPriceX96,uint128 liquidity,int24 tick)"
 ];
 
+const ERC20_TRANSFER_IFACE = new ethers.Interface([
+  "event Transfer(address indexed from,address indexed to,uint256 value)"
+]);
+
+const TRANSFER_TOPIC = ethers.id("Transfer(address,address,uint256)");
+
+function getActualTaxedTokenAmountFromReceipt({
+  receipt,
+  tokenAddress,
+  trader,
+  side,
+}) {
+  const tokenLc = tokenAddress.toLowerCase();
+  const traderLc = trader.toLowerCase();
+
+  let actual = 0n;
+
+  for (const log of receipt.logs || []) {
+    if (String(log.address).toLowerCase() !== tokenLc) continue;
+    if (log.topics?.[0] !== TRANSFER_TOPIC) continue;
+
+    try {
+      const parsed = ERC20_TRANSFER_IFACE.parseLog(log);
+      const from = String(parsed.args.from).toLowerCase();
+      const to = String(parsed.args.to).toLowerCase();
+      const value = BigInt(parsed.args.value);
+
+      // BUY: actual amount received by buyer after tax
+      if (side === "BUY" && to === traderLc) {
+        actual += value;
+      }
+
+      // SELL: actual amount sent by seller into pair/router
+      if (side === "SELL" && from === traderLc) {
+        actual += value;
+      }
+    } catch {
+      // ignore unrelated/bad logs
+    }
+  }
+
+  return actual > 0n ? actual : null;
+}
+
 function shortAddr(address) {
   if (!address) return "Unknown";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -564,16 +608,47 @@ setInterval(async () => {
             const swap = decodeSwap(parsed, poolMeta, trackedMeta);
             if (!swap || swap.baseAmountRaw <= 0n) continue;
 
-            let tx;
-            if (txCache.has(log.transactionHash)) {
-              tx = txCache.get(log.transactionHash);
-            } else {
-              tx = await provider.getTransaction(log.transactionHash);
-              txCache.set(log.transactionHash, tx);
-            }
+let tx;
+let receipt;
 
-            const buyerAddress = tx?.from || swap.trader;
-            const usdValue = estimateSwapUsdValue(priceEngine, trackedMeta, swap);
+if (txCache.has(log.transactionHash)) {
+  const cached = txCache.get(log.transactionHash);
+  tx = cached.tx;
+  receipt = cached.receipt;
+} else {
+  tx = await provider.getTransaction(log.transactionHash);
+  receipt = await provider.getTransactionReceipt(log.transactionHash);
+
+  txCache.set(log.transactionHash, {
+    tx,
+    receipt,
+  });
+}
+
+const traderAddress = tx?.from || swap.trader;
+
+let actualBaseAmountRaw = swap.baseAmountRaw;
+
+const isCoreToken =
+  String(trackedMeta.symbol || "").toUpperCase() === "CORE";
+
+if (isCoreToken && receipt) {
+  const actualTaxedAmount = getActualTaxedTokenAmountFromReceipt({
+    receipt,
+    tokenAddress: trackedMeta.address,
+    trader: traderAddress,
+    side: swap.side,
+  });
+
+  if (actualTaxedAmount != null) {
+    actualBaseAmountRaw = actualTaxedAmount;
+  }
+}
+
+const usdValue = estimateSwapUsdValue(priceEngine, trackedMeta, {
+  ...swap,
+  baseAmountRaw: actualBaseAmountRaw,
+});
 
             const aggregateKey = getAggregateKey(
               log.transactionHash,
@@ -587,19 +662,18 @@ addToAggregate(aggregatedSwaps, aggregateKey, {
   symbol: trackedMeta.symbol,
   side: swap.side,
   tokenAddress: trackedMeta.address,
-  baseAmountRaw: swap.baseAmountRaw,
+  baseAmountRaw: actualBaseAmountRaw,
   baseDecimals: trackedMeta.decimals,
   quoteAmountRaw: swap.quoteAmountRaw,
   quoteDecimals: trackedMeta.quoteDecimals,
   quoteSymbol: trackedMeta.quoteSymbol,
-  trader: buyerAddress,
+  trader: traderAddress,
   usdValue: usdValue ?? null,
   imageFileId: trackedMeta.imageFileId || null,
   image: trackedMeta.image || null,
   animationUrl: trackedMeta.animationUrl || null,
   animationFileId: trackedMeta.animationFileId || null,
-  zephyrosAnimationFileId:
-  trackedMeta.zephyrosAnimationFileId || null,
+  zephyrosAnimationFileId: trackedMeta.zephyrosAnimationFileId || null,
 });
           } catch (err) {
             console.error("[SwapListener] Failed processing tracked token swap:", err);

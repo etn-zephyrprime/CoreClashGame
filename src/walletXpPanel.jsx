@@ -94,10 +94,13 @@ const progress = xpProfile
   
   return (
     <div
-      style={{
+style={{
+        position: "relative",
+        zIndex: showXpHelp ? 9999 : 1,
+        isolation: "isolate",
         width: isMobile ? "100%" : 320,
         background:
-          "linear-gradient(180deg, rgba(18,18,18,0.98), rgba(10,10,10,0.98))",
+          "linear-gradient(180deg, rgb(18,18,18), rgb(10,10,10))",
         border: "1px solid #2d2d2d",
         borderRadius: 16,
         padding: "14px 16px",
@@ -201,14 +204,14 @@ const progress = xpProfile
       top: 42,
       left: isMobile ? "auto" : 0,
       right: isMobile ? 0 : "auto",
-      zIndex: 20,
-      width: isMobile ? "min(320px, calc(100vw - 48px))" : 290,
+      zIndex: 9999,
+      background: "rgb(17, 17, 17)",
+      boxShadow: "0 12px 36px rgba(0,0,0,0.95)",
+      isolation: "isolate",      width: isMobile ? "min(320px, calc(100vw - 48px))" : 290,
       maxWidth: 320,
-      background: "#111",
       border: "1px solid #2f2f2f",
       borderRadius: 12,
       padding: "12px 14px",
-      boxShadow: "0 0 18px rgba(0,0,0,0.45)",
     }}
   >
       <div
