@@ -15,6 +15,8 @@ import EVG_ABI from "../../src/abis/EVGABI.json" with { type: "json" };
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const RETRY_COUNT = 3; 
 const RETRY_DELAY_MS = 1000;
+const refreshCooldowns = new Map();
+const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 
 // Retry wrapper
 async function retryRpc(fn, retries = RETRY_COUNT, delayMs = RETRY_DELAY_MS) {
@@ -126,20 +128,41 @@ if (complete) {
     const evg = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVG_ABI, provider);
 
 
-    console.log("Force-scanning VKIN...");
-const vkinIds = await retryRpc(() => fetchOwnedTokenIds(vkin, wallet, "VKIN"));
+if (shouldScanVKIN) {
+  console.log("Scanning VKIN...");
+  updatedWalletCache.VKIN = await retryRpc(() =>
+    fetchOwnedTokenIds(vkin, wallet, "VKIN")
+  );
+}
 
-    console.log("Force-scanning VQLE...");
-const vqleIds = await retryRpc(() => fetchOwnedTokenIds(vqle, wallet, "VQLE"));
+if (shouldScanVQLE) {
+  console.log("Scanning VQLE...");
+  updatedWalletCache.VQLE = await retryRpc(() =>
+    fetchOwnedTokenIds(vqle, wallet, "VQLE")
+  );
+}
 
-    console.log("Force-scanning SCIONS...");
-const scionsIds = await retryRpc(() => fetchOwnedTokenIds(scions, wallet, "SCIONS"));
+if (shouldScanSCIONS) {
+  console.log("Scanning SCIONS...");
+  updatedWalletCache.SCIONS = await retryRpc(() =>
+    fetchOwnedTokenIds(scions, wallet, "SCIONS")
+  );
+}
 
-    console.log("Force-scanning EVG...");
-const evgIds = await retryRpc(() => fetchOwnedTokenIds(evg, wallet, "EVG"));
+if (shouldScanEVG) {
+  console.log("Scanning EVG...");
+  updatedWalletCache.EVG = await retryRpc(() =>
+    fetchOwnedTokenIds(evg, wallet, "EVG")
+  );
+}
 
-    cache[wallet] = { VKIN: vkinIds, VQLE: vqleIds, SCIONS: scionsIds, EVG: evgIds };
-    writeOwnerCache(cache);
+walletCache = updatedWalletCache;
+cache[wallet] = walletCache;
+writeOwnerCache(cache);
+
+if (forceRefresh) {
+  refreshCooldowns.set(wallet, Date.now());
+}
 
     console.log(`Force cache filled: ${vkinIds.length} VKIN, ${vqleIds.length} VQLE, ${scionsIds.length} SCIONS, ${evgIds.length} EVG`);
 
@@ -154,6 +177,21 @@ const evgIds = await retryRpc(() => fetchOwnedTokenIds(evg, wallet, "EVG"));
 router.get("/owned/:wallet", async (req, res) => {
   const wallet = req.params.wallet.toLowerCase();
   const forceRefresh = req.query.refresh === "true";
+
+if (forceRefresh) {
+  const lastRefresh = refreshCooldowns.get(wallet) || 0;
+  const now = Date.now();
+
+  if (now - lastRefresh < REFRESH_COOLDOWN_MS) {
+    return res.status(429).json({
+      error: "NFT refresh is on cooldown. Please try again in a few minutes.",
+      retryAfterMs: REFRESH_COOLDOWN_MS - (now - lastRefresh),
+    });
+  }
+
+  refreshCooldowns.set(wallet, now);
+}
+
   console.log("🔎 Owned NFTs request for:", wallet);
 
 const cache = readOwnerCache();
@@ -208,6 +246,10 @@ if (shouldScanVKIN || shouldScanVQLE || shouldScanSCIONS || shouldScanEVG) {
     walletCache = updatedWalletCache;
     cache[wallet] = walletCache;
     writeOwnerCache(cache);
+
+if (forceRefresh) {
+  refreshCooldowns.set(wallet, Date.now());
+}
 
     console.log(
       `Cache updated: ${(walletCache.VKIN || []).length} VKIN, ${(walletCache.VQLE || []).length} VQLE, ${(walletCache.SCIONS || []).length} SCIONS, ${(walletCache.EVG || []).length} EVG`
