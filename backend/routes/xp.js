@@ -24,15 +24,22 @@ router.get("/me", authWallet, (req, res) => {
 
     const nextLevel = XP_LEVELS.find((lvl) => lvl.minXp > player.xp) || null;
 
-    return res.json({
-      wallet: player.wallet,
-      xp: player.xp,
-      level: player.level,
-      statsBonus: player.statsBonus,
-      updatedAt: player.updatedAt,
-      nextLevelXp: nextLevel ? nextLevel.minXp : null,
-      maxLevel: player.level === XP_LEVELS[XP_LEVELS.length - 1].level,
-    });
+return res.json({
+  wallet: player.wallet,
+  xp: player.xp,
+  level: player.level,
+  statsBonus: player.statsBonus,
+  weeklyLeaderboardBonus: player.weeklyLeaderboardBonus || {
+    attack: 0,
+    defense: 0,
+    vitality: 0,
+    agility: 0,
+  },
+  weeklyLeaderboardRewards: player.weeklyLeaderboardRewards || [],
+  updatedAt: player.updatedAt,
+  nextLevelXp: nextLevel ? nextLevel.minXp : null,
+  maxLevel: player.level === XP_LEVELS[XP_LEVELS.length - 1].level,
+});
   } catch (err) {
     console.error("GET /xp/me error:", err);
     return res.status(500).json({ error: err.message || "Failed to load XP profile" });
