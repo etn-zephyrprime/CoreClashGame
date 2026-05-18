@@ -31,20 +31,24 @@ export default function EcosystemCard({
         }
       }}
     >
-      <div
-        style={{
-          background: "#0f0f0f",
-          border: "1px solid #333",
-          borderRadius: 12,
-          padding: isMobile ? "10px 12px" : "12px 14px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: isMobile ? 10 : 12,
-          boxShadow: "0 0 8px rgba(0,0,0,0.5)",
-        }}
-      >
-        {videoSrc ? (
+<div
+  style={{
+    background: "#0f0f0f",
+    border: "1px solid #333",
+    borderRadius: 12,
+    padding: isMobile ? "12px 8px" : "12px 14px",
+    display: "flex",
+    flexDirection: isMobile ? "column" : "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: isMobile ? 6 : 12,
+    minHeight: isMobile ? 92 : "auto",
+    width: "100%",
+    boxShadow: "0 0 8px rgba(0,0,0,0.5)",
+    textAlign: "center",
+  }}
+>
+          {videoSrc ? (
           <video
             src={videoSrc}
             autoPlay

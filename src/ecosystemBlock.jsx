@@ -27,14 +27,16 @@ export default function EcosystemBlock({
     {
       type: "card",
       linkKey: "telegram",
+      label: "Telegram",
       alt: "Planet Zephyros Telegram",
       imageSrc: TelegramLogo,
       imageScale: 1,
       url: "https://t.me/PlanetZephyros",
     },
-        {
+    {
       type: "card",
       linkKey: "x",
+      label: "X",
       alt: "Planet Zephyros X",
       imageSrc: XLogo,
       imageScale: 1,
