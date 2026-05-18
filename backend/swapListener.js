@@ -768,10 +768,14 @@ const isCore =
 const shouldSendToZephyrosGeneral =
   isCore &&
   (
-    aggregated.side === "SELL" ||
-    (aggregated.side === "BUY" && finalUsdValue < 50)
-  );
+    (aggregated.side === "BUY" &&
+      finalUsdValue > 5 &&
+      finalUsdValue < 50) ||
 
+    (aggregated.side === "SELL" &&
+      finalUsdValue > 20)
+  );
+  
 if (shouldSendToZephyrosGeneral) {
   await sendZephyrosCoreSwapMessage({
     side: isSell ? "SELL" : "BUY",
