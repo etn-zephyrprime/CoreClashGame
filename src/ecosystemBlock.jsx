@@ -7,6 +7,7 @@ export default function EcosystemBlock({
   handleEcosystemClick,
   ElectroSwap,
   TelegramLogo,
+  XLogo,
   PlanetZephyrosAE,
   VerdantKinBanner,
   VerdantQueenBanner,
@@ -97,59 +98,64 @@ export default function EcosystemBlock({
 },
   ];
 
-  return (
+return (
+  <div style={{ marginTop: 16, width: "100%" }}>
+    {/* Top links */}
     <div
       style={{
-        marginTop: 16,
         width: "100%",
         display: "grid",
-        gridTemplateColumns: isMobile
-          ? "1fr 1fr"
-          : "1fr 1.4fr 1.4fr 1.4fr 1fr",
-        gap: 14,
+        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+        gap: isMobile ? 10 : 14,
+        alignItems: "center",
+        justifyItems: "center",
+        marginBottom: 14,
+      }}
+    >
+      {ecosystemItems
+        .filter((item) => item.type === "card")
+        .map((item) => (
+          <EcosystemCard
+            key={item.linkKey}
+            isMobile={isMobile}
+            label={item.label}
+            alt={item.alt}
+            imageSrc={item.imageSrc}
+            videoSrc={item.videoSrc}
+            imageScale={item.imageScale}
+            onClick={() => handleEcosystemClick(item.linkKey, item.url)}
+          />
+        ))}
+    </div>
+
+    {/* NFT banners */}
+    <div
+      style={{
+        width: "100%",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr",
+        gap: isMobile ? 10 : 14,
         alignItems: "center",
         justifyItems: "center",
       }}
     >
-{ecosystemItems.map((item) => {
-  const onClick = () =>
-    handleEcosystemClick(item.linkKey, item.url);
-
-  switch (item.type) {
-    case "card":
-      return (
-<EcosystemCard
-  key={item.linkKey}
-  isMobile={isMobile}
-  label={item.label}
-  alt={item.alt}
-  imageSrc={item.imageSrc}
-  videoSrc={item.videoSrc}
-  imageScale={item.imageScale}
-  onClick={onClick}
-/>
-      );
-
-    case "banner":
-      return (
-<EcosystemBanner
-  key={item.linkKey}
-  isMobile={isMobile}
-  imageSrc={item.imageSrc}
-  alt={item.alt}
-  objectFit={item.objectFit}
-  desktopMaxWidth={item.desktopMaxWidth}
-  desktopHeight={item.desktopHeight}
-  imageScale={item.imageScale}
-  imageTranslateY={item.imageTranslateY}
-  onClick={onClick}
-/>
-  );
-
-    default:
-      return null;
-  }
-})}
-   </div>
-  );
+      {ecosystemItems
+        .filter((item) => item.type === "banner")
+        .map((item) => (
+          <EcosystemBanner
+            key={item.linkKey}
+            isMobile={isMobile}
+            imageSrc={item.imageSrc}
+            alt={item.alt}
+            objectFit={item.objectFit}
+            desktopMaxWidth={item.desktopMaxWidth}
+            desktopHeight={item.desktopHeight}
+            imageScale={item.imageScale}
+            imageTranslateY={item.imageTranslateY}
+            onClick={() => handleEcosystemClick(item.linkKey, item.url)}
+          />
+        ))}
+    </div>
+  </div>
+);
 }
