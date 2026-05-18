@@ -26,8 +26,16 @@ export default function EcosystemBlock({
     },
     {
       type: "card",
+      linkKey: "electroswap",
+      label: "Buy",
+      alt: "Buy CORE",
+      imageSrc: ElectroSwap,
+      url: "https://app.electroswap.io/explore/tokens/electroneum/0x309b916b3a90cb3e071697ea9680e9217a30066f?inputCurrency=ETN",
+    },
+    {
+      type: "card",
       linkKey: "telegram",
-      label: "Telegram",
+      label: "TG",
       alt: "Planet Zephyros Telegram",
       imageSrc: TelegramLogo,
       imageScale: 1,
@@ -41,14 +49,6 @@ export default function EcosystemBlock({
       imageSrc: XLogo,
       imageScale: 1,
       url: "https://x.com/PlanetZephyros",
-    },
-    {
-      type: "card",
-      linkKey: "electroswap",
-      label: "Buy CORE",
-      alt: "Buy CORE",
-      imageSrc: ElectroSwap,
-      url: "https://app.electroswap.io/explore/tokens/electroneum/0x309b916b3a90cb3e071697ea9680e9217a30066f?inputCurrency=ETN",
     },
 {
   type: "banner",
@@ -102,33 +102,45 @@ export default function EcosystemBlock({
 
 return (
   <div style={{ marginTop: 16, width: "100%" }}>
-    {/* Top links */}
-    <div
-      style={{
-        width: "100%",
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
-        gap: isMobile ? 10 : 14,
-        alignItems: "center",
-        justifyItems: "center",
-        marginBottom: 14,
-      }}
-    >
-      {ecosystemItems
-        .filter((item) => item.type === "card")
-        .map((item) => (
-          <EcosystemCard
-            key={item.linkKey}
-            isMobile={isMobile}
-            label={item.label}
-            alt={item.alt}
-            imageSrc={item.imageSrc}
-            videoSrc={item.videoSrc}
-            imageScale={item.imageScale}
-            onClick={() => handleEcosystemClick(item.linkKey, item.url)}
-          />
-        ))}
-    </div>
+{/* Top links */}
+<div
+  style={{
+    width: "100%",
+    display: "flex",
+    gap: 10,
+    overflowX: isMobile ? "auto" : "visible",
+    WebkitOverflowScrolling: "touch",
+    justifyContent: isMobile ? "flex-start" : "center",
+    paddingBottom: isMobile ? 4 : 0,
+    marginBottom: 14,
+    scrollbarWidth: "none",
+  }}
+>
+  {ecosystemItems
+    .filter((item) => item.type === "card")
+    .map((item) => (
+      <div
+        key={item.linkKey}
+        style={{
+          flex: isMobile ? "0 0 110px" : "1",
+          minWidth: isMobile ? 110 : undefined,
+          maxWidth: isMobile ? 110 : 180,
+        }}
+      >
+        <EcosystemCard
+          isMobile={isMobile}
+          label={item.label}
+          alt={item.alt}
+          imageSrc={item.imageSrc}
+          videoSrc={item.videoSrc}
+          imageScale={item.imageScale}
+          onClick={() =>
+            handleEcosystemClick(item.linkKey, item.url)
+          }
+        />
+      </div>
+    ))}
+</div>
 
     {/* NFT banners */}
     <div
