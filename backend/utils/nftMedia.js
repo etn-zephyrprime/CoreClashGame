@@ -25,7 +25,7 @@ export function resolveCollectionFromAddress(rawAddr) {
     addressToCollection[addr] ||
       (addr.includes("8cfbb04c")
       ? "VQLE"
-      : addr.includes("5C81a560")   // 👈 add this
+      : addr.includes("5c81a560")   // 👈 add this
       ? "EVG"
       : addr.includes("ac620b1a3de23f4eb0a69663613babf73f6c535d")
       ? "SCIONS"
@@ -39,31 +39,30 @@ export function resolveNftImageFile({
   tokenURI,
 }) {
   const collection = resolveCollectionFromAddress(contractAddress);
+  const tokenIdStr = String(tokenId);
+
   const mapping = loadMapping();
-  const mappedEntry = mapping?.[collection]?.[String(tokenId)];
+  const mappedEntry = mapping?.[collection]?.[tokenIdStr];
 
-const COLLECTION_IMAGE_FORMATS = {
-  EVG: "webp",
-  VQLE: "png",
-  SCIONS: "png",
-  VKIN: "png",
-};
+  const COLLECTION_IMAGE_FORMATS = {
+    EVG: "webp",
+    VQLE: "png",
+    SCIONS: "png",
+    VKIN: "png",
+  };
 
-const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+  const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
-const imageFile = mapped.image_file || `${tokenId}.${format}`;
+  let imageFile = `${tokenIdStr}.${format}`;
 
-if (mappedEntry?.image_file) {
-  imageFile = mappedEntry.image_file;
-} else if (mappedEntry?.token_uri) {
-  imageFile = String(mappedEntry.token_uri)
-    .replace(/\.json$/i, `.${format}`)
-    .toLowerCase();
-} else if (tokenURI) {
-  imageFile = String(tokenURI)
-    .replace(/\.json$/i, `.${format}`)
-    .toLowerCase();
-}
+  if (mappedEntry?.image_file) {
+    imageFile = String(mappedEntry.image_file);
+  } else if (mappedEntry?.token_uri) {
+    imageFile = String(mappedEntry.token_uri).replace(/\.json$/i, `.${format}`);
+  } else if (tokenURI) {
+    imageFile = String(tokenURI).replace(/\.json$/i, `.${format}`);
+  }
+
   return {
     collection,
     imageFile,
