@@ -48,43 +48,48 @@ export default function EcosystemCard({
     textAlign: "center",
   }}
 >
-          {videoSrc ? (
-          <video
-            src={videoSrc}
-            autoPlay
-            loop
-            muted
-            playsInline
-style={{
-  width: isMobile ? 38 : 44,
-  height: isMobile ? 38 : 44,
-  borderRadius: 6,
-  objectFit: "cover",
-  transform: `scale(${imageScale})`,
-}}
-          />
-        ) : (
-          <img
-            src={imageSrc}
-            alt={alt}
-style={{
-  width: isMobile ? 34 : 40,
-  height: isMobile ? 34 : 40,
-  borderRadius: 6,
-  transform: `scale(${imageScale})`,
-}}
-          />
-        )}
-
-        <span
-          style={{
-            fontSize: isMobile ? 12 : 14,
-            fontWeight: 600,
-            color: "#fff",
-          }}
-        >
-          {label}
-        </span>
+{videoSrc ? (
+  <video
+    src={videoSrc}
+    autoPlay
+    loop
+    muted
+    playsInline
+    style={{
+      width: isMobile ? 42 : 44,
+      height: isMobile ? 42 : 44,
+      borderRadius: 6,
+      objectFit: "cover",
+      transform: `scale(${imageScale})`,
+    }}
+  />
+) : (
+  <img
+    src={imageSrc}
+    alt={alt}
+    style={{
+      width: isMobile ? 38 : 40,
+      height: isMobile ? 38 : 40,
+      borderRadius: 6,
+      objectFit: "contain",
+      transform: `scale(${imageScale})`,
+    }}
+  />
+)}
+<span
+  style={{
+    fontSize: isMobile ? 11 : 14,
+    fontWeight: 600,
+    color: "#fff",
+    lineHeight: 1.2,
+    minHeight: isMobile ? 26 : "auto",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
+  {label}
+</span>
       </div>
     </div>
   );
