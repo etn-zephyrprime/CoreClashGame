@@ -6,6 +6,7 @@ export default function EcosystemBlock({
   isMobile,
   handleEcosystemClick,
   ElectroSwap,
+  TelegramLogo,
   PlanetZephyrosAE,
   VerdantKinBanner,
   VerdantQueenBanner,
@@ -21,6 +22,15 @@ export default function EcosystemBlock({
       videoSrc: PlanetZephyrosAE,
       imageScale: 1.05, // 👈 add this
       url: "https://planetetn.org/zephyros",
+    },
+    {
+      type: "card",
+      linkKey: "telegram",
+      label: "Telegram",
+      alt: "Planet Zephyros Telegram",
+      imageSrc: TelegramLogo,
+      imageScale: 1,
+      url: "https://t.me/PlanetZephyros",
     },
     {
       type: "card",
