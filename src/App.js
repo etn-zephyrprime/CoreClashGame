@@ -2564,6 +2564,7 @@ return (
     handleEcosystemClick={handleEcosystemClick}
     ElectroSwap={ElectroSwap}
     TelegramLogo={TelegramLogo}
+    XLogo={XLogo}
     PlanetZephyrosAE={PlanetZephyrosAE}
     VerdantKinBanner={VerdantKinBanner}
     VerdantQueenBanner={VerdantQueenBanner}

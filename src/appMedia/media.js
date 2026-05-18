@@ -11,6 +11,7 @@ import VerdantQueenBannerImg from "./QueenBanner.png";
 import ElectroneumImg from "./Electroneum.png";
 import EtnClubImg from "./etnClub.jpg";
 import TelegramLogoImg from "./TelegramLogo.png";
+import XLogoImg from "./XLogo.jpg";
 
 export const CoreClashLogo = CoreClashLogoImg;
 export const PlanetZephyrosAE = PlanetZephyrosAEVideo;
@@ -25,3 +26,4 @@ export const VerdantQueenBanner = VerdantQueenBannerImg;
 export const ElectroneumLogo = ElectroneumImg;
 export const EtnClubLogo = EtnClubImg;
 export const TelegramLogo = TelegramLogoImg;
+export const XLogo = XLogoImg;

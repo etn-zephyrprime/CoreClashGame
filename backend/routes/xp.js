@@ -89,6 +89,7 @@ router.post("/ecosystem-click", authWallet, (req, res) => {
       "evg",
       "electroswap",
       "telegram",
+      "x",
       "website",
       "sponsoredad1",
     ];
