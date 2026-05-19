@@ -2526,7 +2526,7 @@ return (
   src={CoreClashLogo}
   alt="Core Clash"
   style={{
-    height: isMobile ? 80 : 80,
+    height: isMobile ? 80 * 1.2 : 80 * 1.2,
     width: "auto",
     pointerEvents: "none",
     display: "block",
@@ -3529,7 +3529,7 @@ onClick={createGame} // <-- THIS IS REQUIRED
       src={CoreClashLogo}
       alt="Core Clash"
       style={{
-        width: isMobile ? 36 : 44,
+        width: isMobile ? 36 * 1.5 : 36 * 1.5,
         height: "auto",
         filter: "drop-shadow(0 0 6px #18bb1a)",
       }}
