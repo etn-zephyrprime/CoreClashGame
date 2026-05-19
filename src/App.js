@@ -36,7 +36,7 @@ import { renderTokenImages } from "./renderTokenImages.jsx";
 import {
   CoreClashLogo, AppBackground, PlanetZephyrosAE, HowToPlay, GameInfo, ElectroSwap,
   VerdantKinBanner, ElectroneumLogo, AetherScionsBanner, VerdantQueenBanner, EtnClubLogo, EvgBanner, 
-  TelegramLogo, XLogo
+  TelegramLogo, XLogo, PlanetZephyrosLogo
 } from "./appMedia/media.js";
 
 import { FaTelegramPlane } from "react-icons/fa";
