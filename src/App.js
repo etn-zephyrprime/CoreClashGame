@@ -212,12 +212,14 @@ const handleSponsoredAdClick = async (rewardKey, url) => {
   const [showDeviceWarning, setShowDeviceWarning] = useState(false);
   const [deviceConfirmed, setDeviceConfirmed] = useState(false);
 
+const [videoReady, setVideoReady] = useState(false);
+
 /* ---------------- LOADING BAR ---------------- */
 useEffect(() => {
-  if (!loading) return;
+  if (!loading || !videoReady) return;
 
-  const duration = 5000; // 5 seconds
-  const intervalTime = 50; // smooth animation
+  const duration = 5000;
+  const intervalTime = 50;
   const step = 100 / (duration / intervalTime);
 
   const timer = setInterval(() => {
@@ -227,12 +229,13 @@ useEffect(() => {
         setLoading(false);
         return 100;
       }
-      return prev + step;
+
+      return Math.min(prev + step, 100);
     });
   }, intervalTime);
 
   return () => clearInterval(timer);
-}, [loading]);
+}, [loading, videoReady]);
 
 /// ---------------- XP PROFILE ----------------
 const loadXpProfile = useCallback(async () => {
@@ -1974,45 +1977,50 @@ if (loading) {
 {/* Loading Bar */}
 <div
   style={{
+    position: "relative",
     width: "70%",
     maxWidth: 420,
     height: 18,
     backgroundColor: "#071a08",
     border: "1px solid rgba(24,187,26,0.45)",
     borderRadius: 999,
-    overflow: "hidden",
+    overflow: "visible",
     boxShadow:
       "0 0 14px rgba(24,187,26,0.45), inset 0 0 10px rgba(0,0,0,0.8)",
   }}
 >
   <div
     style={{
-      position: "relative",
-      width: `${progress}%`,
+      width: `${videoReady ? progress : 0}%`,
       height: "100%",
+      borderRadius: 999,
       background: "linear-gradient(90deg, #0f8f11, #18bb1a, #7dff85)",
       transition: "width 50ms linear",
       boxShadow: "0 0 18px rgba(66,255,90,0.9)",
+      overflow: "hidden",
     }}
-  >
-<video
-  src={PlanetZephyrosAE}
-  autoPlay
-  muted
-  loop
-  playsInline
-  style={{
-    position: "absolute",
-    right: -22,
-    top: "50%",
-    transform: "translateY(-50%)",
-    height: 46,
-    width: "auto",
-    pointerEvents: "none",
-    filter: "drop-shadow(0 0 8px rgba(24,187,26,0.9))",
-  }}
-/>
-  </div>
+  />
+
+  <video
+    src={PlanetZephyrosAE}
+    autoPlay
+    muted
+    loop
+    playsInline
+    preload="auto"
+    onCanPlayThrough={() => setVideoReady(true)}
+    style={{
+      position: "absolute",
+      left: `${videoReady ? progress : 0}%`,
+      top: "50%",
+      transform: "translate(-50%, -50%)",
+      height: 52,
+      width: "auto",
+      pointerEvents: "none",
+      zIndex: 3,
+      filter: "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
+    }}
+  />
 </div>
 
         <div
@@ -2024,7 +2032,7 @@ if (loading) {
             letterSpacing: 1,
           }}
         >
-          {Math.round(progress)}%
+          {videoReady ? Math.round(progress) : 0}%
         </div>
 
         <p
