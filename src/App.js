@@ -1889,73 +1889,147 @@ const isMobile = window.innerWidth < 768;
 
 if (loading) {
   return (
-    <div style={{ minHeight: "100vh", position: "relative" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        position: "relative",
+        overflow: "hidden",
+        background:
+          "radial-gradient(circle at center, #123814 0%, #061006 45%, #020402 100%)",
+      }}
+    >
+      {/* Background glow */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle, rgba(24,187,26,0.22), transparent 55%)",
+          animation: "loadingGlow 3s ease-in-out infinite",
+        }}
+      />
+
+      {/* Scanlines */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)",
+          backgroundSize: "100% 6px",
+          opacity: 0.18,
+          pointerEvents: "none",
+        }}
+      />
+
       <div
         style={{
           minHeight: "100vh",
+          position: "relative",
+          zIndex: 2,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           color: "#18bb1a",
           textAlign: "center",
+          padding: 20,
         }}
       >
-<img
-  src={CoreClashLogo}
-  alt="Core Clash"
-  style={{
-    width: "90%",
-    maxWidth: 500,
-    animation: "logoPulse 2.4s ease-in-out infinite",
-  }}
-/>
+        <img
+          src={CoreClashLogo}
+          alt="Core Clash"
+          style={{
+            width: "90%",
+            maxWidth: 520,
+            animation: "logoPulse 2.4s ease-in-out infinite",
+            filter: "drop-shadow(0 0 22px rgba(24,187,26,0.65))",
+          }}
+        />
 
-        {/* Powered By */}
         <p
           style={{
-            marginTop: 20,
-            fontSize: isMobile ? 14: 18,
+            marginTop: 18,
+            marginBottom: 8,
+            fontSize: isMobile ? 13 : 16,
+            letterSpacing: 4,
+            textTransform: "uppercase",
+            opacity: 0.85,
+          }}
+        >
+          Awakening the Core
+        </p>
+
+        <div
+          style={{
+            fontSize: isMobile ? 12 : 14,
+            color: "#b9ffbf",
+            opacity: 0.75,
+            marginBottom: 22,
+          }}
+        >
+          Stake, Reveal, Battle, Win...
+        </div>
+
+        <div
+          style={{
+            width: "70%",
+            maxWidth: 420,
+            height: 14,
+            backgroundColor: "#071a08",
+            border: "1px solid rgba(24,187,26,0.45)",
+            borderRadius: 999,
+            overflow: "hidden",
+            boxShadow:
+              "0 0 14px rgba(24,187,26,0.45), inset 0 0 10px rgba(0,0,0,0.8)",
+          }}
+        >
+          <div
+            style={{
+              width: `${progress}%`,
+              height: "100%",
+              background:
+                "linear-gradient(90deg, #0f8f11, #18bb1a, #7dff85)",
+              transition: "width 50ms linear",
+              boxShadow: "0 0 18px rgba(66,255,90,0.9)",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: isMobile ? 12 : 13,
+            color: "#d8ffdc",
+            opacity: 0.75,
+            letterSpacing: 1,
+          }}
+        >
+          {Math.round(progress)}%
+        </div>
+
+        <p
+          style={{
+            marginTop: 32,
+            marginBottom: 8,
+            fontSize: isMobile ? 12 : 14,
             letterSpacing: 3,
             textTransform: "uppercase",
-            opacity: 0.8,
+            opacity: 0.65,
           }}
         >
           Powered by
         </p>
 
-        {/* New Image */}
         <img
-          src={ElectroneumLogo}   // 👈 replace with your image variable
+          src={ElectroneumLogo}
           alt="Electroneum"
           style={{
-            width: 250,
-            maxWidth: "60%",
-            marginBottom: 30,
+            width: 230,
+            maxWidth: "58%",
+            filter: "drop-shadow(0 0 12px rgba(255,255,255,0.25))",
           }}
         />
-
-{/* Loading Bar */}
-<div
-  style={{
-    width: "60%",
-    maxWidth: 400,
-    height: 12,
-    backgroundColor: "#0f2e10",
-    borderRadius: 20,
-    overflow: "hidden",
-    boxShadow: "0 0 10px #18bb1a55",
-  }}
->
-  <div
-    style={{
-      width: `${progress}%`,
-      height: "100%",
-      background: "linear-gradient(90deg, #18bb1a, #42ff5a)",
-      transition: "width 50ms linear",
-    }}
-  />
-</div>
       </div>
     </div>
   );
