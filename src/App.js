@@ -36,7 +36,7 @@ import { renderTokenImages } from "./renderTokenImages.jsx";
 import {
   CoreClashLogo, AppBackground, PlanetZephyrosAE, HowToPlay, GameInfo, ElectroSwap,
   VerdantKinBanner, ElectroneumLogo, AetherScionsBanner, VerdantQueenBanner, EtnClubLogo, EvgBanner, 
-  TelegramLogo, XLogo
+  TelegramLogo, XLogo, PlanetZephyrosLogo
 } from "./appMedia/media.js";
 
 import { FaTelegramPlane } from "react-icons/fa";
@@ -213,11 +213,13 @@ const handleSponsoredAdClick = async (rewardKey, url) => {
   const [deviceConfirmed, setDeviceConfirmed] = useState(false);
 
 /* ---------------- LOADING BAR ---------------- */
-useEffect(() => {
-  if (!loading) return;
+const [logoReady, setLogoReady] = useState(false);
 
-  const duration = 5000; // 5 seconds
-  const intervalTime = 50; // smooth animation
+useEffect(() => {
+  if (!loading || !logoReady) return;
+
+  const duration = 5000;
+  const intervalTime = 50;
   const step = 100 / (duration / intervalTime);
 
   const timer = setInterval(() => {
@@ -227,12 +229,13 @@ useEffect(() => {
         setLoading(false);
         return 100;
       }
-      return prev + step;
+
+      return Math.min(prev + step, 100);
     });
   }, intervalTime);
 
   return () => clearInterval(timer);
-}, [loading]);
+}, [loading, logoReady]);
 
 /// ---------------- XP PROFILE ----------------
 const loadXpProfile = useCallback(async () => {
@@ -1971,30 +1974,52 @@ if (loading) {
           Stake, Reveal, Battle, Win...
         </div>
 
-        <div
-          style={{
-            width: "70%",
-            maxWidth: 420,
-            height: 14,
-            backgroundColor: "#071a08",
-            border: "1px solid rgba(24,187,26,0.45)",
-            borderRadius: 999,
-            overflow: "hidden",
-            boxShadow:
-              "0 0 14px rgba(24,187,26,0.45), inset 0 0 10px rgba(0,0,0,0.8)",
-          }}
-        >
-          <div
-            style={{
-              width: `${progress}%`,
-              height: "100%",
-              background:
-                "linear-gradient(90deg, #0f8f11, #18bb1a, #7dff85)",
-              transition: "width 50ms linear",
-              boxShadow: "0 0 18px rgba(66,255,90,0.9)",
-            }}
-          />
-        </div>
+{/* Loading Bar */}
+<div
+  style={{
+    position: "relative",
+    width: "70%",
+    maxWidth: 420,
+    height: 18,
+    backgroundColor: "#071a08",
+    border: "1px solid rgba(24,187,26,0.45)",
+    borderRadius: 999,
+    overflow: "visible",
+    boxShadow:
+      "0 0 14px rgba(24,187,26,0.45), inset 0 0 10px rgba(0,0,0,0.8)",
+  }}
+>
+  <div
+    style={{
+      width: `${logoReady ? progress : 0}%`,
+      height: "100%",
+      borderRadius: 999,
+      background: "linear-gradient(90deg, #0f8f11, #18bb1a, #7dff85)",
+      transition: "width 50ms linear",
+      boxShadow: "0 0 18px rgba(66,255,90,0.9)",
+      overflow: "hidden",
+    }}
+  />
+
+<img
+  src={PlanetZephyrosLogo}
+  alt="Planet Zephyros"
+  onLoad={() => setLogoReady(true)}
+  style={{
+    position: "absolute",
+    left: `calc(${logoReady ? progress : 0}% - 4px)`,
+    top: -18,
+    transform: "translateX(-15%)",
+    height: 56,
+    width: "auto",
+    display: "block",
+    pointerEvents: "none",
+    zIndex: 10,
+    filter: "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
+    animation: "logoPulse 2.4s ease-in-out infinite",
+  }}
+/>
+</div>
 
         <div
           style={{
@@ -2005,7 +2030,7 @@ if (loading) {
             letterSpacing: 1,
           }}
         >
-          {Math.round(progress)}%
+          {logoReady ? Math.round(progress) : 0}%
         </div>
 
         <p
@@ -2526,7 +2551,7 @@ return (
   src={CoreClashLogo}
   alt="Core Clash"
   style={{
-    height: isMobile ? 80 : 80,
+    height: isMobile ? 80 * 1.2 : 80 * 1.2,
     width: "auto",
     pointerEvents: "none",
     display: "block",
@@ -3529,7 +3554,7 @@ onClick={createGame} // <-- THIS IS REQUIRED
       src={CoreClashLogo}
       alt="Core Clash"
       style={{
-        width: isMobile ? 36 : 44,
+        width: isMobile ? 36 * 1.5 : 36 * 1.5,
         height: "auto",
         filter: "drop-shadow(0 0 6px #18bb1a)",
       }}
