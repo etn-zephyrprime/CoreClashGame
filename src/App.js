@@ -212,9 +212,9 @@ const handleSponsoredAdClick = async (rewardKey, url) => {
   const [showDeviceWarning, setShowDeviceWarning] = useState(false);
   const [deviceConfirmed, setDeviceConfirmed] = useState(false);
 
-const [logoReady, setlogoReady] = useState(false);
-
 /* ---------------- LOADING BAR ---------------- */
+const [logoReady, setLogoReady] = useState(false);
+
 useEffect(() => {
   if (!loading || !logoReady) return;
 
