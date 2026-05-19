@@ -212,11 +212,11 @@ const handleSponsoredAdClick = async (rewardKey, url) => {
   const [showDeviceWarning, setShowDeviceWarning] = useState(false);
   const [deviceConfirmed, setDeviceConfirmed] = useState(false);
 
-const [videoReady, setVideoReady] = useState(false);
+const [logoReady, setlogoReady] = useState(false);
 
 /* ---------------- LOADING BAR ---------------- */
 useEffect(() => {
-  if (!loading || !videoReady) return;
+  if (!loading || !logoReady) return;
 
   const duration = 5000;
   const intervalTime = 50;
@@ -235,7 +235,7 @@ useEffect(() => {
   }, intervalTime);
 
   return () => clearInterval(timer);
-}, [loading, videoReady]);
+}, [loading, logoReady]);
 
 /// ---------------- XP PROFILE ----------------
 const loadXpProfile = useCallback(async () => {
@@ -1991,7 +1991,7 @@ if (loading) {
 >
   <div
     style={{
-      width: `${videoReady ? progress : 0}%`,
+      width: `${logoReady ? progress : 0}%`,
       height: "100%",
       borderRadius: 999,
       background: "linear-gradient(90deg, #0f8f11, #18bb1a, #7dff85)",
@@ -2001,24 +2001,26 @@ if (loading) {
     }}
   />
 
-<img
-  src={PlanetZephyrosLogo}
-  alt="Planet Zephyros"
-  onLoad={() => setVideoReady(true)}
-  style={{
-    position: "absolute",
-    left: `${videoReady ? progress : 0}%`,
-    top: "50%",
-    transform: "translate(-50%, -50%)",
-    height: 56,
-    width: "auto",
-    pointerEvents: "none",
-    zIndex: 3,
-    filter:
-      "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
-    animation: "logoPulse 2.4s ease-in-out infinite",
-  }}
-/>
+  <img
+    src={PlanetZephyrosLogo}
+    alt="Planet Zephyros"
+    onLoad={() => setLogoReady(true)}
+    onError={() => console.error("PlanetZephyrosLogo failed to load")}
+    style={{
+      position: "absolute",
+      left: `${logoReady ? progress : 0}%`,
+      top: "50%",
+      transform: "translate(-50%, -50%)",
+      height: 56,
+      width: "auto",
+      display: "block",
+      opacity: logoReady ? 1 : 0,
+      pointerEvents: "none",
+      zIndex: 10,
+      filter: "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
+      animation: "logoPulse 2.4s ease-in-out infinite",
+    }}
+  />
 </div>
 
         <div
@@ -2030,7 +2032,7 @@ if (loading) {
             letterSpacing: 1,
           }}
         >
-          {videoReady ? Math.round(progress) : 0}%
+          {logoReady ? Math.round(progress) : 0}%
         </div>
 
         <p
