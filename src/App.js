@@ -1995,20 +1995,23 @@ if (loading) {
       boxShadow: "0 0 18px rgba(66,255,90,0.9)",
     }}
   >
-    <img
-      src={PlanetZephyrosAE}
-      alt="Planet Zephyros"
-      style={{
-        position: "absolute",
-        right: -18,
-        top: "50%",
-        transform: "translateY(-50%)",
-        height: 42,
-        width: "auto",
-        pointerEvents: "none",
-        filter: "drop-shadow(0 0 8px rgba(24,187,26,0.9))",
-      }}
-    />
+<video
+  src={PlanetZephyrosAE}
+  autoPlay
+  muted
+  loop
+  playsInline
+  style={{
+    position: "absolute",
+    right: -22,
+    top: "50%",
+    transform: "translateY(-50%)",
+    height: 46,
+    width: "auto",
+    pointerEvents: "none",
+    filter: "drop-shadow(0 0 8px rgba(24,187,26,0.9))",
+  }}
+/>
   </div>
 </div>
 
