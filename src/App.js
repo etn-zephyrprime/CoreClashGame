@@ -2001,26 +2001,25 @@ if (loading) {
     }}
   />
 
-  <img
-    src={PlanetZephyrosLogo}
-    alt="Planet Zephyros"
-    onLoad={() => setLogoReady(true)}
-    onError={() => console.error("PlanetZephyrosLogo failed to load")}
-    style={{
-      position: "absolute",
-      left: `${logoReady ? progress : 0}%`,
-      top: "50%",
-      transform: "translate(-50%, -50%)",
-      height: 56,
-      width: "auto",
-      display: "block",
-      opacity: logoReady ? 1 : 0,
-      pointerEvents: "none",
-      zIndex: 10,
-      filter: "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
-      animation: "logoPulse 2.4s ease-in-out infinite",
-    }}
-  />
+<img
+  src={PlanetZephyrosLogo}
+  alt="Planet Zephyros"
+  onLoad={() => setLogoReady(true)}
+  style={{
+    position: "absolute",
+    left: `calc(${logoReady ? progress : 0}% - 4px)`,
+    top: "50%",
+    transform: "translate(-15%, -50%)",
+    height: 56,
+    width: "auto",
+    display: "block",
+    pointerEvents: "none",
+    zIndex: 10,
+    filter:
+      "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
+    animation: "logoPulse 2.4s ease-in-out infinite",
+  }}
+/>
 </div>
 
         <div
