@@ -4035,18 +4035,35 @@ onClick={createGame} // <-- THIS IS REQUIRED
     gap: 8,
   }}
 >
-  {/* Copyright */}
-  <div
+{/* Copyright */}
+<div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    fontSize: 13,
+    color: "#888",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    textShadow: "0 0 8px rgba(24,187,26,0.4)",
+  }}
+>
+  <img
+    src={PlanetZephyrosLogo}
+    alt="Planet Zephyros"
     style={{
-      fontSize: 13,
-      color: "#888",
-      letterSpacing: 1,
-      textTransform: "uppercase",
-      textShadow: "0 0 8px rgba(24,187,26,0.4)",
+      height: 24,
+      width: "auto",
+      objectFit: "contain",
+      filter: "drop-shadow(0 0 6px rgba(24,187,26,0.5))",
     }}
-  >
+  />
+
+  <span>
     © {new Date().getFullYear()} Planet Zephyros × @ETN_Villain
-  </div>
+  </span>
+</div>
 
   {/* Divider line (subtle polish) */}
   <div
