@@ -1971,30 +1971,46 @@ if (loading) {
           Stake, Reveal, Battle, Win...
         </div>
 
-        <div
-          style={{
-            width: "70%",
-            maxWidth: 420,
-            height: 14,
-            backgroundColor: "#071a08",
-            border: "1px solid rgba(24,187,26,0.45)",
-            borderRadius: 999,
-            overflow: "hidden",
-            boxShadow:
-              "0 0 14px rgba(24,187,26,0.45), inset 0 0 10px rgba(0,0,0,0.8)",
-          }}
-        >
-          <div
-            style={{
-              width: `${progress}%`,
-              height: "100%",
-              background:
-                "linear-gradient(90deg, #0f8f11, #18bb1a, #7dff85)",
-              transition: "width 50ms linear",
-              boxShadow: "0 0 18px rgba(66,255,90,0.9)",
-            }}
-          />
-        </div>
+{/* Loading Bar */}
+<div
+  style={{
+    width: "70%",
+    maxWidth: 420,
+    height: 18,
+    backgroundColor: "#071a08",
+    border: "1px solid rgba(24,187,26,0.45)",
+    borderRadius: 999,
+    overflow: "hidden",
+    boxShadow:
+      "0 0 14px rgba(24,187,26,0.45), inset 0 0 10px rgba(0,0,0,0.8)",
+  }}
+>
+  <div
+    style={{
+      position: "relative",
+      width: `${progress}%`,
+      height: "100%",
+      background: "linear-gradient(90deg, #0f8f11, #18bb1a, #7dff85)",
+      transition: "width 50ms linear",
+      boxShadow: "0 0 18px rgba(66,255,90,0.9)",
+    }}
+  >
+    <img
+      src={PlanetZephyrosAE}
+      alt="Planet Zephyros"
+      style={{
+        position: "absolute",
+        right: -18,
+        top: "50%",
+        transform: "translateY(-50%)",
+        height: 42,
+        width: "auto",
+        pointerEvents: "none",
+        filter: "drop-shadow(0 0 8px rgba(24,187,26,0.9))",
+      }}
+    />
+  </div>
+</div>
 
         <div
           style={{
