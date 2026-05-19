@@ -2008,15 +2008,14 @@ if (loading) {
   style={{
     position: "absolute",
     left: `calc(${logoReady ? progress : 0}% - 4px)`,
-    top: "50%",
-    transform: "translate(-15%, -50%)",
+    top: -18,
+    transform: "translateX(-15%)",
     height: 56,
     width: "auto",
     display: "block",
     pointerEvents: "none",
     zIndex: 10,
-    filter:
-      "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
+    filter: "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
     animation: "logoPulse 2.4s ease-in-out infinite",
   }}
 />
