@@ -2469,7 +2469,16 @@ return (
     gap: isMobile ? 10 : 16,
   }}
 >
-  {!account ? (
+{!account ? (
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 10,
+      width: "100%",
+    }}
+  >
     <button
       onClick={connectWallet}
       style={{
@@ -2496,7 +2505,31 @@ return (
     >
       Connect Wallet
     </button>
-  ) : (
+
+    {/* Browser warning */}
+    <div
+      style={{
+        maxWidth: 420,
+        background: "rgba(255, 170, 0, 0.08)",
+        border: "1px solid rgba(255, 170, 0, 0.25)",
+        borderRadius: 12,
+        padding: "10px 12px",
+        fontSize: isMobile ? 11 : 12,
+        color: "#d7d7d7",
+        lineHeight: 1.45,
+        textAlign: "center",
+      }}
+    >
+      <span style={{ color: "#ffb84d", fontWeight: 700 }}>
+        ⚠ Browser Warning:
+      </span>{" "}
+      Do not play Core Clash inside a wallet’s built-in browser. Reveal
+      files must be downloaded to complete games. Please open Core Clash
+      using a normal browser like <strong>Chrome</strong>,{" "}
+      <strong>Safari</strong>, or <strong>Edge</strong>.
+    </div>
+  </div>
+) : (
     <div
       style={{
         display: "flex",
