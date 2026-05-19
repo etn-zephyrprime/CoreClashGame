@@ -2001,26 +2001,23 @@ if (loading) {
     }}
   />
 
-  <video
-    src={PlanetZephyrosAE}
-    autoPlay
-    muted
-    loop
-    playsInline
-    preload="auto"
-    onCanPlayThrough={() => setVideoReady(true)}
-    style={{
-      position: "absolute",
-      left: `${videoReady ? progress : 0}%`,
-      top: "50%",
-      transform: "translate(-50%, -50%)",
-      height: 52,
-      width: "auto",
-      pointerEvents: "none",
-      zIndex: 3,
-      filter: "drop-shadow(0 0 10px rgba(24,187,26,0.95))",
-    }}
-  />
+<video
+  src={PlanetZephyrosAE}
+  autoPlay
+  muted
+  loop
+  playsInline
+  style={{
+    position: "absolute",
+    left: `${videoReady ? progress : 0}%`,
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    height: 52,
+    mixBlendMode: "screen",
+    pointerEvents: "none",
+    zIndex: 3,
+  }}
+/>
 </div>
 
         <div
