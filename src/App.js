@@ -1957,7 +1957,7 @@ if (loading) {
             opacity: 0.85,
           }}
         >
-          Loading Arena
+          Awakening the Core
         </p>
 
         <div
@@ -1968,7 +1968,7 @@ if (loading) {
             marginBottom: 22,
           }}
         >
-          Preparing battles, warriors and rewards...
+          Stake, Reveal, Battle, Win...
         </div>
 
         <div
