@@ -670,115 +670,115 @@ function getSwapTelegramDestination(destination = "MAIN_ALERTS") {
 }
 
 // Main function to send swap messages to Telegram with rich formatting and media support
-export async function sendSwapMessage({
-  symbol,
-  side,                    // "BUY" or "SELL"
-  baseAmount,
-  quoteAmount,
-  quoteSymbol,  
-  trader,
-  txHash,
-  usdValue,
-  tokenPriceUsd,
-  imageFileId,
-  image,
-  animationUrl,
-  animationFileId,
-  extraHtml = "",          // for multi-hop route info
-  includeFooter = true,
-  destination = "MAIN_ALERTS",
-}) {
-try {
-  const txUrl = `${EXPLORER_BASE_URL}/tx/${txHash}`;
-  const traderUrl = `${EXPLORER_BASE_URL}/address/${trader}`;
+//export async function sendSwapMessage({
+//  symbol,
+//  side,                    // "BUY" or "SELL"
+//  baseAmount,
+//  quoteAmount,
+//  quoteSymbol,  
+//  trader,
+//  txHash,
+//  usdValue,
+//  tokenPriceUsd,
+//  imageFileId,
+//  image,
+//  animationUrl,
+//  animationFileId,
+//  extraHtml = "",          // for multi-hop route info
+//  includeFooter = true,
+//  destination = "MAIN_ALERTS",
+//}) {
+//try {
+//  const txUrl = `${EXPLORER_BASE_URL}/tx/${txHash}`;
+//  const traderUrl = `${EXPLORER_BASE_URL}/address/${trader}`;
 
-  const emoji = side === "SELL" ? "🔴" : "🟢";
-  const action = side === "SELL" ? "SELL" : "BUY";
+//  const emoji = side === "SELL" ? "🔴" : "🟢";
+//  const action = side === "SELL" ? "SELL" : "BUY";
 
-// repeat emoji 10 times
-const emojiLine = emoji.repeat(10);
+//// repeat emoji 10 times
+//const emojiLine = emoji.repeat(10);
 
-const titleLine =
-  usdValue != null
-    ? `${emojiLine}\n<b>${escapeHtml(symbol)} ${action}</b> ($${formatUsd(usdValue)})\n`
-    : `${emojiLine}\n<b>${escapeHtml(symbol)} ${action}</b>\n`;
+//const titleLine =
+//  usdValue != null
+//    ? `${emojiLine}\n<b>${escapeHtml(symbol)} ${action}</b> ($${formatUsd(usdValue)})\n`
+//    : `${emojiLine}\n<b>${escapeHtml(symbol)} ${action}</b>\n`;
 
-  const priceLine =
-    tokenPriceUsd != null && Number.isFinite(tokenPriceUsd)
-      ? `💵 <b>${escapeHtml(symbol)} Price:</b> $${formatUsdPrice(tokenPriceUsd)}`
-      : null;
+//  const priceLine =
+//    tokenPriceUsd != null && Number.isFinite(tokenPriceUsd)
+//      ? `💵 <b>${escapeHtml(symbol)} Price:</b> $${formatUsdPrice(tokenPriceUsd)}`
+//      : null;
 
-  let text = [
-    titleLine,
-    `💰 <b>${side === "SELL" ? "Received" : "Paid"}:</b> ${escapeHtml(quoteAmount)} ${escapeHtml(quoteSymbol)}`,
-    `🔢 <b>Amount:</b> ${escapeHtml(baseAmount)} ${escapeHtml(symbol)}`,
-    priceLine,
-    "",
-    `👤 <b>Buyer:</b> <a href="${traderUrl}">${escapeHtml(shortAddr(trader))}</a>`,
-    `🔗 <a href="${txUrl}">View Transaction</a>`,
-    "",
-  ].filter(Boolean).join("\n");
+//  let text = [
+//    titleLine,
+//    `💰 <b>${side === "SELL" ? "Received" : "Paid"}:</b> ${escapeHtml(quoteAmount)} ${escapeHtml(quoteSymbol)}`,
+//    `🔢 <b>Amount:</b> ${escapeHtml(baseAmount)} ${escapeHtml(symbol)}`,
+//    priceLine,
+//    "",
+//    `👤 <b>Buyer:</b> <a href="${traderUrl}">${escapeHtml(shortAddr(trader))}</a>`,
+//    `🔗 <a href="${txUrl}">View Transaction</a>`,
+//    "",
+//  ].filter(Boolean).join("\n");
 
-  if (includeFooter) {
-    text += buildClubFooter();
-  }
+//  if (includeFooter) {
+//    text += buildClubFooter();
+//  }
 
-const { chatId, threadId } = getSwapTelegramDestination(destination);
+//const { chatId, threadId } = getSwapTelegramDestination(destination);
 
-if (!CLUB_TELEGRAM_BOT_TOKEN || !chatId) {
-  console.warn(`[Telegram] Swap destination not configured: ${destination}`);
-  return null;
-}
+//if (!CLUB_TELEGRAM_BOT_TOKEN || !chatId) {
+//  console.warn(`[Telegram] Swap destination not configured: ${destination}`);
+//  return null;
+//}
 
-const basePayload = {
-  chat_id: chatId,
-  parse_mode: "HTML",
-  disable_web_page_preview: true,
-};
+//const basePayload = {
+//  chat_id: chatId,
+//  parse_mode: "HTML",
+//  disable_web_page_preview: true,
+//};
 
-if (threadId != null && Number.isFinite(threadId)) {
-  basePayload.message_thread_id = threadId;
-}
+//if (threadId != null && Number.isFinite(threadId)) {
+//  basePayload.message_thread_id = threadId;
+//}
 
-const shouldSendMedia = destination !== "ALL_SWAPS" && side !== "SELL";
+//const shouldSendMedia = destination !== "ALL_SWAPS" && side !== "SELL";
 
-    // Animation / Photo / Text fallback (same as before)
-    if (shouldSendMedia && (animationFileId || animationUrl)) {
-      try {
-        await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendAnimation`, {
-          ...basePayload,
-          animation: animationFileId || animationUrl,
-          caption: text,
-        });
-        return;
-      } catch (err) {
-        console.error("[Telegram] Animation failed:", err.message);
-      }
-    }
+//    // Animation / Photo / Text fallback (same as before)
+//    if (shouldSendMedia && (animationFileId || animationUrl)) {
+//      try {
+//        await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendAnimation`, {
+//          ...basePayload,
+//          animation: animationFileId || animationUrl,
+//          caption: text,
+//        });
+//        return;
+//      } catch (err) {
+//        console.error("[Telegram] Animation failed:", err.message);
+//      }
+//    }
 
-    if (shouldSendMedia && (imageFileId || image)) {
-      try {
-        await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-          ...basePayload,
-          photo: imageFileId || image,
-          caption: text,
-        });
-        return;
-      } catch (err) {
-        console.error("[Telegram] Photo failed:", err.message);
-      }
-    }
+//    if (shouldSendMedia && (imageFileId || image)) {
+//      try {
+//        await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+//          ...basePayload,
+//          photo: imageFileId || image,
+//          caption: text,
+//        });
+//        return;
+//      } catch (err) {
+//        console.error("[Telegram] Photo failed:", err.message);
+//      }
+//    }
 
-    // Plain text fallback
-    await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      ...basePayload,
-      text,
-    });
+//    // Plain text fallback
+//    await axios.post(`https://api.telegram.org/bot${CLUB_TELEGRAM_BOT_TOKEN}/sendMessage`, {
+//      ...basePayload,
+//      text,
+//    });
 
-  } catch (err) {
-    console.error("[Telegram] sendSwapMessage error:", err.response?.data || err.message || err);
-  }
-}
+//  } catch (err) {
+//    console.error("[Telegram] sendSwapMessage error:", err.response?.data || err.message || err);
+//  }
+//}
 
 // New function to send the weekly leaderboard message to Telegram
 export async function sendTelegramWeeklyLeaderboard() {
