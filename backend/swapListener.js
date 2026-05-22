@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { RPC_URL } from "./config.js";
 import { TRACKED_TOKENS, TOKEN_SYMBOL_MAP  } from "./swapsConfig.js";
-import { sendSwapMessage, sendZephyrosCoreSwapMessage } from "./utils/telegramBot.js";
+import { sendZephyrosCoreSwapMessage } from "./utils/telegramBot.js"; //sendSwapMessage,
 import { buildPriceEngine } from "./utils/priceEngine.js";
 const POLL_INTERVAL_MS = 60000;
 const MAX_BLOCK_RANGE = 500;
@@ -775,7 +775,7 @@ const shouldSendToZephyrosGeneral =
     (aggregated.side === "SELL" &&
       finalUsdValue > 20)
   );
-  
+
 if (shouldSendToZephyrosGeneral) {
   await sendZephyrosCoreSwapMessage({
     side: isSell ? "SELL" : "BUY",
