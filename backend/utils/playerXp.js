@@ -169,11 +169,11 @@ async function sendEtnReward(toWallet) {
 }
 
 // ---------- EVG REWARDS ------------- //
-const NFT_REWARD_LEVELS = [4, 6, 8, 10];
+const NFT_REWARD_LEVELS = [6, 7, 8, 10];
 
 const NFT_TOKEN_RANGES = {
-  4: { start: 1, end: 250 },
-  6: { start: 251, end: 500 },
+  6: { start: 1, end: 250 },
+  7: { start: 251, end: 500 },
   8: { start: 501, end: 750 },
   10: { start: 651, end: 1000 },
 };
