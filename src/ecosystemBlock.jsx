@@ -17,12 +17,12 @@ export default function EcosystemBlock({
   const ecosystemItems = [
     {
       type: "card",
-      linkKey: "website",
-      label: "Website",
-      alt: "Zephyros Planet ETN",
+      linkKey: "staking",
+      label: "Staking",
+      alt: "Core Ascension",
       videoSrc: PlanetZephyrosAE,
       imageScale: 1.10, // 👈 add this
-      url: "https://planetetn.org/zephyros",
+      url: "https://staking.planetzephyros.xyz",
     },
     {
       type: "card",
@@ -40,6 +40,15 @@ export default function EcosystemBlock({
       imageSrc: TelegramLogo,
       imageScale: 1,
       url: "https://t.me/PlanetZephyros",
+    },
+    {
+      type: "card",
+      linkKey: "website",
+      label: "Website",
+      alt: "Zephyros Planet ETN",
+      videoSrc: PlanetZephyrosAE,
+      imageScale: 1.10, // 👈 add this
+      url: "https://planetetn.org/zephyros",
     },
     {
       type: "card",
