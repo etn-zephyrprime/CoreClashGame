@@ -17,20 +17,21 @@ export default function EcosystemBlock({
   const ecosystemItems = [
     {
       type: "card",
-      linkKey: "website",
-      label: "Website",
-      alt: "Zephyros Planet ETN",
+      linkKey: "staking",
+      label: "Staking",
+      alt: "Core Ascension",
       videoSrc: PlanetZephyrosAE,
       imageScale: 1.10, // 👈 add this
-      url: "https://planetetn.org/zephyros",
+      url: "https://staking.planetzephyros.xyz",
     },
     {
       type: "card",
       linkKey: "electroswap",
-      label: "Buy",
+      label: "Buy CORE",
       alt: "Buy CORE",
       imageSrc: ElectroSwap,
-      url: "https://app.electroswap.io/explore/tokens/electroneum/0x309b916b3a90cb3e071697ea9680e9217a30066f?inputCurrency=ETN",
+      imageScale: 1.0,
+      url: "https://app.electroswap.io/swap?inputCurrency=ETN&outputCurrency=0x309b916b3a90cb3e071697ea9680e9217a30066f",
     },
     {
       type: "card",
@@ -43,11 +44,20 @@ export default function EcosystemBlock({
     },
     {
       type: "card",
+      linkKey: "website",
+      label: "Website",
+      alt: "Zephyros Planet ETN",
+      videoSrc: PlanetZephyrosAE,
+      imageScale: 1.08, // 👈 add this
+      url: "https://planetetn.org/zephyros",
+    },
+    {
+      type: "card",
       linkKey: "x",
       label: "X",
       alt: "Planet Zephyros X",
       imageSrc: XLogo,
-      imageScale: 1,
+      imageScale: 1.0,
       url: "https://x.com/PlanetZephyros",
     },
 {

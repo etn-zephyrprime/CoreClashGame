@@ -4049,21 +4049,21 @@ onClick={createGame} // <-- THIS IS REQUIRED
     textShadow: "0 0 8px rgba(24,187,26,0.4)",
   }}
 >
-  <img
-    src={PlanetZephyrosLogo}
-    alt="Planet Zephyros"
-    style={{
-      height: 24,
-      width: "auto",
-      objectFit: "contain",
-      filter: "drop-shadow(0 0 6px rgba(24,187,26,0.5))",
-    }}
-  />
+        <img
+          src={PlanetZephyrosLogo}
+          alt="Planet Zephyros"
+          style={{
+            height: 24,
+            width: "auto",
+            objectFit: "contain",
+            filter: "drop-shadow(0 0 6px rgba(24,187,26,0.5))",
+          }}
+        />
 
-  <span>
-    © {new Date().getFullYear()} Planet Zephyros × @ETN_Villain
-  </span>
-</div>
+        <span>
+          © {new Date().getFullYear()} Planet Zephyros × @ETN_Villain
+        </span>
+      </div>
 
   {/* Divider line (subtle polish) */}
   <div
