@@ -39,7 +39,7 @@ app.use(cors({
   origin: [
     "https://coreclash.planetzephyros.xyz",
     "https://planetzephyros.xyz",
-    "https://coreclashgame.vercel.app",
+    "https://staking.planetzephyros.xyz",
     "http://localhost:3000",
     "http://localhost:5173",
   ],
