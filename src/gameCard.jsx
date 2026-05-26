@@ -312,7 +312,7 @@ const isMissedRevealSettled =
   isCancelled &&
   hasPlayer2 &&
   (!p1Revealed || !p2Revealed);
-
+  
 const showTeamsSection =
   bothRevealed || isMissedRevealSettled;
 
