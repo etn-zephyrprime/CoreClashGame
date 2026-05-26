@@ -113,11 +113,16 @@ const isCancelled = isTrue(g.cancelled);
 const hasPlayer2 = !!safePlayer2 && safePlayer2 !== zero;
 const isPlayer2Empty = !hasPlayer2;
 
-const p1Revealed =
-  !!g.player1Reveal || isTrue(g.backendPlayer1Revealed) || isTrue(g.player1Revealed);
+// Better reveal detection
+const p1Revealed = 
+  !!(g.player1Reveal?.tokenIds?.length) || 
+  isTrue(g.backendPlayer1Revealed) || 
+  isTrue(g.player1Revealed);
 
-const p2Revealed =
-  !!g.player2Reveal || isTrue(g.backendPlayer2Revealed) || isTrue(g.player2Revealed);
+const p2Revealed = 
+  !!(g.player2Reveal?.tokenIds?.length) || 
+  isTrue(g.backendPlayer2Revealed) || 
+  isTrue(g.player2Revealed);
 
 const bothRevealed = p1Revealed && p2Revealed;
 
