@@ -146,10 +146,18 @@ const backupExists = (() => {
 
 // ---------- Game Status Logic ----------
 function getGameStatus(g) {
-const isTrue = (v) => v === true || v === "true";
+  const isTrue = (v) => v === true || v === "true";
   
-const p1Revealed = !!g.player1Reveal || isTrue(g.backendPlayer1Revealed);
-const p2Revealed = !!g.player2Reveal || isTrue(g.backendPlayer2Revealed);
+  // More reliable reveal detection
+  const p1Revealed = 
+    !!(g.player1Reveal?.tokenIds?.length) || 
+    isTrue(g.backendPlayer1Revealed) || 
+    isTrue(g.player1Revealed);
+
+  const p2Revealed = 
+    !!(g.player2Reveal?.tokenIds?.length) || 
+    isTrue(g.backendPlayer2Revealed) || 
+    isTrue(g.player2Revealed);
 
   const missedRevealDeadline =
     isTrue(g.settled) &&
@@ -161,8 +169,8 @@ const p2Revealed = !!g.player2Reveal || isTrue(g.backendPlayer2Revealed);
       label: "🔗 Settled - Missing Reveal(s)",
       color: "#ff9f43",
       link: g.settleTxHash
-      ? `https://blockexplorer.electroneum.com/tx/${g.settleTxHash}`
-      : undefined,
+        ? `https://blockexplorer.electroneum.com/tx/${g.settleTxHash}`
+        : undefined,
     };
   }
 
@@ -187,11 +195,12 @@ const p2Revealed = !!g.player2Reveal || isTrue(g.backendPlayer2Revealed);
     return { label: "⏳ Waiting for Opponent", color: "#f0b90b" };
   }
 
+  // Improved "Awaiting Reveals" check
   if (
     g.player1 &&
     g.player2 &&
     g.player2 !== ethers.ZeroAddress &&
-    (!g.player1Reveal || !g.player2Reveal)
+    (!p1Revealed || !p2Revealed)
   ) {
     return { label: "⏳ Awaiting Reveals", color: "#888" };
   }
