@@ -1133,7 +1133,13 @@ const handleRevealFile = useCallback(
           }),
         });
 
-        backendData = await res.json();
+let backendData = null;
+
+try {
+  backendData = await res.json();
+} catch {
+  backendData = {};
+}
 
         if (!res.ok) {
           throw new Error(
