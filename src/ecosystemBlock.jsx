@@ -36,7 +36,7 @@ export default function EcosystemBlock({
     {
       type: "card",
       linkKey: "telegram",
-      label: "TG",
+      label: "",
       alt: "Planet Zephyros Telegram",
       imageSrc: TelegramLogo,
       imageScale: 1,
@@ -54,7 +54,7 @@ export default function EcosystemBlock({
     {
       type: "card",
       linkKey: "x",
-      label: "X",
+      label: "",
       alt: "Planet Zephyros X",
       imageSrc: XLogo,
       imageScale: 1.0,
