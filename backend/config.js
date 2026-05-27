@@ -20,3 +20,4 @@ export const CORE_TOKEN_ADDRESS = process.env.CORE_TOKEN_ADDRESS;
 export const WETN_TOKEN_ADDRESS = process.env.WETN_TOKEN_ADDRESS;
 export const EXPLORER_BASE_URL = "https://blockexplorer.electroneum.com";
 export const ELECTROSWAP_BASE_URL = "https://app.electroswap.io";
+export const DRIP_FUNDER_ADDRESS = "0x219341313B6142343C3003f3e2CAec96779cf8ED";  // ← Add this to your .env file

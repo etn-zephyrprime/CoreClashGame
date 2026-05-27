@@ -27,6 +27,7 @@ import { startNftMintListener } from "./nftMintListener.js";
 import { startNftMarketplaceListener } from "./nftMarketplaceListener.js";
 import { startZephyrosAdvertScheduler } from "./utils/telegramBot.js";
 import { startInactiveXpReminderScheduler } from "./utils/inactiveXpReminder.js";
+import { startDripBot } from "./utils/dripBot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -403,6 +404,25 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+// ... all your other imports and setup
+
+// Start all background services
+async function startBackgroundServices() {
+    initAdminWallet();
+    startCoreBurnListener();
+    startSwapListener();
+    startNftMintListener();
+    startNftMarketplaceListener();
+    startZephyrosAdvertScheduler();
+    startInactiveXpReminderScheduler();
+    
+    // Start the CORE drip bot
+    await startDripBot();        // ← Add this
+}
+
+// Call it
+startBackgroundServices().catch(console.error);
 
 // Replace your existing app.listen block with this:
 app.listen(PORT, () => {
