@@ -1168,6 +1168,32 @@ export function startZephyrosAdvertScheduler() {
   );
 }
 
+// ====================== CORE DRIP NOTIFICATION ======================
+export async function sendCoreDripNotification({
+  amount,
+  txHash,
+  remainingDrips,
+  totalDripped
+}) {
+  if (!isTelegramConfigured()) {
+    console.warn("Telegram not configured - skipping drip notification");
+    return null;
+  }
+
+  const txUrl = `${EXPLORER_BASE_URL}/tx/${txHash}`;
+
+  const text =
+    `💧 <b>CORE Reward Pool Drip</b>\n\n` +
+    `✅ <b>${amount} CORE</b> added to staking rewards\n` +
+    `📊 Remaining to drip: <b>${remainingDrips} × 500 CORE</b>\n` +
+    `📈 Total dripped so far: <b>${(totalDripped / 1e18).toLocaleString()} CORE</b>\n\n` +
+    `🔗 <a href="${txUrl}">View Transaction on Explorer</a>`;
+
+  return sendTelegramGroupMessage(text, {
+    includeFooter: true
+  });
+}
+
 export {
   isTelegramConfigured,
   isZephyrosTelegramConfigured,
