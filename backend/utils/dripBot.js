@@ -7,81 +7,68 @@ import {
     DRIP_FUNDER_ADDRESS
 } from "../config.js";
 
-const CHECK_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
+const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
+// Updated ABI with event
 const ABI = [
     "function drip()",
     "function nextDripIn() view returns (uint256)",
     "function totalDripped() view returns (uint256)",
     "function totalToDrip() view returns (uint256)",
-    "function startTimestamp() view returns (uint256)"
+    "function startTimestamp() view returns (uint256)",
+    
+    // Event
+    "event Dripped(uint256 amount, uint256 remainingToDrip, uint256 dripCount)"
 ];
 
 let isRunning = false;
+let contractWithSigner = null;
 
 export async function startDripBot() {
-    if (isRunning) {
-        console.log("✅ Drip Bot is already running");
-        return;
-    }
+    if (isRunning) return;
 
-    if (!BACKEND_PRIVATE_KEY) {
-        console.error("❌ BACKEND_PRIVATE_KEY is missing in .env");
-        return;
-    }
-
-    if (!DRIP_FUNDER_ADDRESS || DRIP_FUNDER_ADDRESS.startsWith("0xYour")) {
-        console.error("❌ DRIP_FUNDER_ADDRESS is not properly set in config.js");
+    if (!BACKEND_PRIVATE_KEY || !DRIP_FUNDER_ADDRESS || DRIP_FUNDER_ADDRESS.startsWith("0xYour")) {
+        console.error("❌ Missing BACKEND_PRIVATE_KEY or DRIP_FUNDER_ADDRESS");
         return;
     }
 
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
-    const contract = new ethers.Contract(DRIP_FUNDER_ADDRESS, ABI, wallet);
+    const contract = new ethers.Contract(DRIP_FUNDER_ADDRESS, ABI, provider);
+    contractWithSigner = new ethers.Contract(DRIP_FUNDER_ADDRESS, ABI, wallet);
 
-    console.log(`🚀 Core Drip Bot Started Successfully`);
-    console.log(`📍 Wallet: ${wallet.address}`);
-    console.log(`📍 Drip Contract: ${DRIP_FUNDER_ADDRESS}`);
-    console.log(`🔄 Checking every 5 minutes...\n`);
+    console.log(`🚀 Core Drip Bot Started (Event + Polling Mode)`);
+    console.log(`📍 Contract: ${DRIP_FUNDER_ADDRESS}`);
 
     isRunning = true;
 
+    // === Event Listener (Best way - catches manual calls too) ===
+    contract.on("Dripped", async (amount, remainingToDrip, dripCount) => {
+        console.log(`🔔 Dripped Event Detected! Amount: ${Number(amount) / 1e18} CORE`);
+
+        await sendCoreDripNotification({
+            amount: Number(amount) / 1e18,
+            txHash: "Event", // We can improve this later with tx hash
+            remainingDrips: Number(remainingToDrip) / (500 * 1e18),
+            totalDripped: Number(amount) * Number(dripCount)
+        }).catch(err => console.error("Telegram failed:", err.message));
+    });
+
+    // === Polling fallback (in case event misses) ===
     setInterval(async () => {
         try {
             const nextDripIn = await contract.nextDripIn();
-            const totalDripped = await contract.totalDripped();
-            const totalToDrip = await contract.totalToDrip();
-
-            const now = new Date();
 
             if (Number(nextDripIn) === 0) {
-                console.log(`[${now.toLocaleString()}] ✅ Time to drip! Executing...`);
+                console.log(`[${new Date().toLocaleString()}] ✅ Time to drip! Executing...`);
 
-                const tx = await contract.drip();
-                console.log(`📤 Transaction sent: ${tx.hash}`);
-
-                const receipt = await tx.wait();
-                console.log(`✅ Drip executed successfully! Block: ${receipt.blockNumber}`);
-
-                // Send Telegram Notification
-                const amount = 500;
-                const remainingDrips = Number((totalToDrip - totalDripped) / BigInt(500 * 10 ** 18));
-
-                await sendCoreDripNotification({
-                    amount,
-                    txHash: tx.hash,
-                    remainingDrips,
-                    totalDripped: Number(totalDripped)
-                }).catch(err => console.error("Telegram notification failed:", err.message));
-
+                const tx = await contractWithSigner.drip();
+                console.log(`📤 Bot drip sent: ${tx.hash}`);
+                await tx.wait();
             } else {
                 const hoursLeft = (Number(nextDripIn) / 3600).toFixed(1);
-                console.log(`[${now.toLocaleString()}] ⏳ Next drip in ~${hoursLeft} hours`);
+                console.log(`[${new Date().toLocaleString()}] ⏳ Next drip in ~${hoursLeft} hours`);
             }
-
-            const remainingDrips = Number((totalToDrip - totalDripped) / BigInt(500 * 10 ** 18));
-            console.log(`📊 Remaining drips: ${remainingDrips}\n`);
-
         } catch (error) {
             console.error(`❌ Drip Bot Error:`, error.message);
         }
