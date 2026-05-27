@@ -1,11 +1,14 @@
 // backend/utils/inactiveXpReminder.js
+
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
+
 import {
   readInactiveXpReminderState,
   writeInactiveXpReminderState,
 } from "../store/inactiveXpReminderStore.js";
+
 import {
   sendTelegramGroupMessage,
   escapeHtml,
@@ -21,8 +24,9 @@ const XP_FILE = path.join(BASE_DATA_DIR, "playerXp.json");
 const XP_ACTIONS_FILE = path.join(BASE_DATA_DIR, "xpActions.json");
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // hourly
-const SEND_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+const SEND_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000; // every 3 days
 
 function readJsonSafe(file, fallback = {}) {
   try {
@@ -34,19 +38,27 @@ function readJsonSafe(file, fallback = {}) {
   }
 }
 
-function isTwoPmUtcNow() {
+function isWithinSendWindowUtc() {
   const now = new Date();
-  return now.getUTCHours() === 14;
+
+  return (
+    now.getUTCHours() === 14 &&
+    now.getUTCMinutes() < 10
+  );
 }
 
 function getLastXpActivityDate(wallet, xpActions, playerXp) {
   const walletLc = wallet.toLowerCase();
+
   const actions = xpActions[walletLc];
   const player = playerXp[walletLc];
 
   const dates = [];
 
-  if (player?.updatedAt) dates.push(player.updatedAt);
+  if (player?.updatedAt) {
+    dates.push(player.updatedAt);
+  }
+
   if (actions?.dailyLogin?.lastClaimedDate) {
     dates.push(actions.dailyLogin.lastClaimedDate);
   }
@@ -66,10 +78,11 @@ function getLastXpActivityDate(wallet, xpActions, playerXp) {
 }
 
 function getInactiveStage(daysInactive) {
-  if (daysInactive >= 12) return "dormant";
+  if (daysInactive >= 12) return 4;
   if (daysInactive >= 9) return 3;
   if (daysInactive >= 6) return 2;
   if (daysInactive >= 3) return 1;
+
   return 0;
 }
 
@@ -98,6 +111,14 @@ function getStageStyle(stage) {
     };
   }
 
+  if (stage === 4) {
+    return {
+      icon: "⚫",
+      label: "Dormant",
+      detail: "12+ days inactive",
+    };
+  }
+
   return {
     icon: "⚪",
     label: "Unknown",
@@ -107,7 +128,10 @@ function getStageStyle(stage) {
 
 function buildInactiveXpMessage(reminders) {
   const sorted = [...reminders].sort((a, b) => {
-    if (b.stage !== a.stage) return b.stage - a.stage;
+    if (b.stage !== a.stage) {
+      return b.stage - a.stage;
+    }
+
     return b.daysInactive - a.daysInactive;
   });
 
@@ -116,193 +140,171 @@ function buildInactiveXpMessage(reminders) {
 
     return (
       `${icon} <code>${escapeHtml(shortWallet(wallet))}</code> — ` +
-      `<b>${escapeHtml(daysInactive)} days</b>\n` +
+      `<b>${escapeHtml(String(daysInactive))} days</b>\n` +
       `<i>${escapeHtml(label)} (${escapeHtml(detail)})</i>`
     );
   });
 
   const maxStage = Math.max(...sorted.map((r) => r.stage));
 
-const footer =
-  maxStage === 1
-    ? "<b>Stay active and keep earning XP.</b>"
-    : maxStage === 2
-    ? "<b>A gentle nudge to jump back in and keep things moving.</b>"
-    : "<b>Still inactive — log in, claim XP, and keep your progress going.</b>";
+  const footer =
+    maxStage === 1
+      ? "<b>Stay active and keep earning XP.</b>"
+      : maxStage === 2
+      ? "<b>A gentle nudge to jump back in and keep things moving.</b>"
+      : maxStage === 3
+      ? "<b>Still inactive — log in, claim XP, and keep your progress going.</b>"
+      : "<b>Some wallets have gone fully dormant. Time to return and rebuild momentum.</b>";
 
-return (
-  `⏳ <b>XP Activity Check-In</b>\n\n` +
-  `<b>Wallets currently inactive:</b>\n\n` +
-  rows.join("\n\n") +
-  `\n\n${footer}`
-);
+  return (
+    `⏳ <b>XP Activity Check-In</b>\n\n` +
+    `<b>Wallets currently inactive:</b>\n\n` +
+    rows.join("\n\n") +
+    `\n\n${footer}`
+  );
 }
 
 export async function runInactiveXpReminderCheck() {
   const playerXp = readJsonSafe(XP_FILE, {});
   const xpActions = readJsonSafe(XP_ACTIONS_FILE, {});
+
   const state = readInactiveXpReminderState();
 
   const now = Date.now();
-  const nextWalletState = { ...(state.wallets || {}) };
-  const remindersToSend = [];
 
-const isFirstRun = !state.bootstrappedAt;
-
-const lastSentAt = state.lastSentAt
-  ? new Date(state.lastSentAt).getTime()
-  : 0;
-
-const nowTime = Date.now();
-const isTwoPmUtc = new Date().getUTCHours() === 14;
-
-const canSend =
-  isFirstRun ||
-  (nowTime - lastSentAt >= SEND_INTERVAL_MS && isTwoPmUtc);
-
-for (const wallet of Object.keys(playerXp)) {
-  const walletLc = wallet.toLowerCase();
-
-  if (
-    !ethers.isAddress(walletLc) ||
-    walletLc === ethers.ZeroAddress.toLowerCase()
-  ) {
-    continue;
-  }
-
-  const lastActivity = getLastXpActivityDate(walletLc, xpActions, playerXp);
-  if (!lastActivity) continue;
-
-  const daysInactive = Math.floor(
-    (now - lastActivity.getTime()) / ONE_DAY_MS
-  );
-
-  const existing = nextWalletState[walletLc] || {
-    reminderStage: 0,
-    dormant: false,
+  const nextWalletState = {
+    ...(state.wallets || {}),
   };
 
-  // Bootstrap mode:
-  // everyone already inactive starts from stage 1, no matter how old their inactivity is.
-  if (isFirstRun && daysInactive >= 3) {
+  const remindersToSend = [];
+
+  const lastSentAt = state.lastSentAt
+    ? new Date(state.lastSentAt).getTime()
+    : 0;
+
+  const enoughTimePassed =
+    now - lastSentAt >= SEND_INTERVAL_MS;
+
+  const canSend =
+    enoughTimePassed &&
+    isWithinSendWindowUtc();
+
+  for (const wallet of Object.keys(playerXp)) {
+    const walletLc = wallet.toLowerCase();
+
+    if (
+      !ethers.isAddress(walletLc) ||
+      walletLc === ethers.ZeroAddress.toLowerCase()
+    ) {
+      continue;
+    }
+
+    const lastActivity = getLastXpActivityDate(
+      walletLc,
+      xpActions,
+      playerXp
+    );
+
+    if (!lastActivity) {
+      continue;
+    }
+
+    const daysInactive = Math.floor(
+      (now - lastActivity.getTime()) / ONE_DAY_MS
+    );
+
+    const stage = getInactiveStage(daysInactive);
+
+    // Active again
+    if (stage === 0) {
+      delete nextWalletState[walletLc];
+      continue;
+    }
+
     remindersToSend.push({
       wallet: walletLc,
       daysInactive,
-      stage: 1,
+      stage,
     });
 
     nextWalletState[walletLc] = {
-      ...existing,
-      reminderStage: 1,
-      dormant: false,
-      firstInactiveSeenAt: new Date().toISOString(),
-      lastReminderAt: new Date().toISOString(),
+      reminderStage: stage,
+      lastReminderCheckAt: new Date().toISOString(),
       lastDaysInactive: daysInactive,
+      lastActivityAt: lastActivity.toISOString(),
     };
-
-    continue;
   }
 
-  const stage = getInactiveStage(daysInactive);
+  if (remindersToSend.length > 0 && canSend) {
+    try {
+      await sendTelegramGroupMessage(
+        buildInactiveXpMessage(remindersToSend),
+        {
+          skipDefaultThread: true,
+          includeFooter: true,
+        }
+      );
 
-  // Active again — clear reminder state.
-  if (stage === 0) {
-    delete nextWalletState[walletLc];
-    continue;
+      console.log(
+        "[XP INACTIVE] batch message sent:",
+        remindersToSend.length
+      );
+    } catch (err) {
+      console.error(
+        "[XP INACTIVE] failed to send telegram message:",
+        err.message || err
+      );
+    }
+  } else {
+    console.log("[XP INACTIVE] skipping send", {
+      reminders: remindersToSend.length,
+      enoughTimePassed,
+      withinWindow: isWithinSendWindowUtc(),
+      canSend,
+    });
   }
 
-  // Dormant — stop reminders after final stage.
-  if (stage === "dormant") {
-    nextWalletState[walletLc] = {
-      ...existing,
-      reminderStage: 3,
-      dormant: true,
-      dormantAt: existing.dormantAt || new Date().toISOString(),
-      lastDaysInactive: daysInactive,
-    };
-    continue;
-  }
+  writeInactiveXpReminderState({
+    ...state,
 
-// First startup/bootstrap:
-// list every currently inactive wallet, but reset their reminder countdown from now.
-if (isFirstRun && typeof stage === "number" && stage >= 1) {
-  remindersToSend.push({
-    wallet: walletLc,
-    daysInactive,
-    stage: 1,
+    bootstrappedAt:
+      state.bootstrappedAt ||
+      new Date().toISOString(),
+
+    lastRunAt: new Date().toISOString(),
+
+    lastSentAt:
+      remindersToSend.length > 0 && canSend
+        ? new Date().toISOString()
+        : state.lastSentAt,
+
+    wallets: nextWalletState,
   });
-
-  nextWalletState[walletLc] = {
-    ...existing,
-    reminderStage: 1,
-    dormant: false,
-    firstInactiveSeenAt: new Date().toISOString(),
-    lastReminderAt: new Date().toISOString(),
-    lastDaysInactive: daysInactive,
-  };
-
-  continue;
-}
-
-// Normal mode:
-// send only when newly crossing stage 1, 2, or 3.
-if ((existing.reminderStage || 0) < stage) {
-  remindersToSend.push({
-    wallet: walletLc,
-    daysInactive,
-    stage,
-  });
-
-  nextWalletState[walletLc] = {
-    ...existing,
-    reminderStage: stage,
-    dormant: false,
-    lastReminderAt: new Date().toISOString(),
-    lastDaysInactive: daysInactive,
-  };
-}
-  }
-
-if (remindersToSend.length > 0 && canSend) {
-  await sendTelegramGroupMessage(buildInactiveXpMessage(remindersToSend), {
-    skipDefaultThread: true,
-    includeFooter: true,
-  });
-
-  console.log("[XP INACTIVE] batch message sent:", remindersToSend.length);
-
-  state.lastSentAt = new Date().toISOString();
-} else {
-  console.log("[XP INACTIVE] skipping send", {
-    reminders: remindersToSend.length,
-    canSend,
-  });
-}
-
-writeInactiveXpReminderState({
-  ...state,
-  bootstrappedAt: state.bootstrappedAt || new Date().toISOString(),
-  lastRunAt: new Date().toISOString(),
-  lastSentAt: remindersToSend.length > 0 && canSend
-    ? new Date().toISOString()
-    : state.lastSentAt,
-  wallets: nextWalletState,
-});
 
   return {
     checked: Object.keys(playerXp).length,
-    remindersSent: remindersToSend.length,
+    remindersQueued: remindersToSend.length,
+    remindersSent:
+      remindersToSend.length > 0 && canSend
+        ? remindersToSend.length
+        : 0,
   };
 }
 
 export function startInactiveXpReminderScheduler() {
-  runInactiveXpReminderCheck().catch((err) =>
-    console.error("[XP INACTIVE] initial check failed:", err.message || err)
-  );
+  runInactiveXpReminderCheck().catch((err) => {
+    console.error(
+      "[XP INACTIVE] initial check failed:",
+      err.message || err
+    );
+  });
 
   setInterval(() => {
-    runInactiveXpReminderCheck().catch((err) =>
-      console.error("[XP INACTIVE] scheduled check failed:", err.message || err)
-    );
+    runInactiveXpReminderCheck().catch((err) => {
+      console.error(
+        "[XP INACTIVE] scheduled check failed:",
+        err.message || err
+      );
+    });
   }, CHECK_INTERVAL_MS);
 }
