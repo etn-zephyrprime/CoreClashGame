@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import cron from "node-cron";
 import "dotenv/config";
 
 import { generateMapping } from "./utils/generateMapping.js";
@@ -28,6 +30,8 @@ import { startDripBot } from "./utils/dripBot.js";
 
 import { reconcileActiveGamesScheduled } from "./reconcile.js";
 import { backfillWeeklyLeaderboardsFromGames } from "./store/weeklyLeaderboardStore.js";
+import { processRevealDeadlineNotifications } from "./utils/revealDeadlineNotifier.js";
+import { sendTelegramWeeklyLeaderboard, sendTelegramFinalWeeklyLeaderboard, sendTelegramAllTimeLeaderboard } from "./utils/telegramBot.js";
 
 // ---------------- CONFIG ----------------
 const __filename = fileURLToPath(import.meta.url);
@@ -73,9 +77,22 @@ app.get("/metadata/:collection/:tokenId", (req, res) => {
         const collectionKey = collection.toUpperCase();
 
         const mapped = mapping[collectionKey]?.[String(tokenId)];
-        if (!mapped) return res.status(404).json({ error: "Token not found" });
+        if (!mapped) {
+            return res.status(404).json({ error: "Token not found in mapping" });
+        }
 
         const jsonFile = mapped.token_uri || `${tokenId}.json`;
+
+        const COLLECTION_IMAGE_FORMATS = {
+            EVG: "webp",
+            VQLE: "png",
+            SCIONS: "png",
+            VKIN: "png",
+        };
+
+        const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+        const imageFile = mapped.image_file || `${tokenId}.${format}`;
+
         const filePath = path.join(METADATA_JSON_DIR, collectionKey, jsonFile);
 
         if (!fs.existsSync(filePath)) {
@@ -83,12 +100,68 @@ app.get("/metadata/:collection/:tokenId", (req, res) => {
         }
 
         const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-        const imageFile = mapped.image_file || `${tokenId}.png`;
 
-        return res.json({ ...data, image_file: imageFile });
+        return res.json({
+            ...data,
+            image_file: imageFile,
+        });
     } catch (err) {
         console.error("Metadata route error:", err);
         return res.status(500).json({ error: "Failed to load metadata" });
+    }
+});
+
+// ---------------- VALIDATE ROUTE ----------------
+app.post("/games/validate", (req, res) => {
+    try {
+        const { nfts } = req.body;
+
+        if (!Array.isArray(nfts)) {
+            return res.status(400).json({ error: "Invalid NFTs payload" });
+        }
+
+        const mapping = loadMapping();
+
+        const metadata = nfts.map(({ address, tokenId }) => {
+            const collection = address?.toLowerCase().includes("8cfbb04c") ? "VQLE" : "VKIN";
+            const mapped = mapping[collection]?.[String(tokenId)];
+
+            if (!mapped) {
+                throw new Error(`Missing mapping for ${collection} token ${tokenId}`);
+            }
+
+            const jsonFile = mapped.token_uri || `${tokenId}.json`;
+            const filePath = path.join(METADATA_JSON_DIR, collection, jsonFile);
+
+            if (!fs.existsSync(filePath)) {
+                throw new Error(`Metadata file missing for ${collection} token ${tokenId}`);
+            }
+
+            const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+            const traits = {};
+            for (const attr of data.attributes || []) {
+                traits[attr.trait_type.toLowerCase()] = attr.value;
+            }
+
+            return {
+                tokenId,
+                traits: [
+                    Number(traits.attack),
+                    Number(traits.defense),
+                    Number(traits.vitality),
+                    Number(traits.agility),
+                    Number(traits.core),
+                ],
+                background: traits.background || "Unknown",
+                tokenURI: `metadata/${collection}/${tokenId}`,
+            };
+        });
+
+        return res.json({ metadata });
+    } catch (err) {
+        console.error("POST /games/validate error:", err);
+        return res.status(500).json({ error: err.message || "Validation failed" });
     }
 });
 
@@ -98,13 +171,10 @@ app.get("/burn-total", (req, res) => {
         const total = readBurnTotal();
         return res.json({ totalBurnWei: total.toString() });
     } catch (err) {
-        console.error("Burn total error:", err);
+        console.error("Failed to read burn total:", err);
         return res.status(500).json({ error: "Failed to read burn total" });
     }
 });
-
-// ---------------- VALIDATION ----------------
-app.post("/games/validate", (req, res) => { /* ... keep your existing validate logic ... */ });
 
 // ---------------- BACKGROUND SERVICES ----------------
 async function startBackgroundServices() {
@@ -118,7 +188,7 @@ async function startBackgroundServices() {
         console.error("❌ Initialization failed:", err.message);
     }
 
-    // Core Listeners
+    // Listeners
     await startCoreBurnListener().catch(err => console.error("Burn listener failed:", err));
     await startSwapListener().catch(err => console.error("Swap listener failed:", err));
     await startNftMintListener().catch(err => console.error("NFT mint listener failed:", err));
@@ -129,7 +199,7 @@ async function startBackgroundServices() {
     startInactiveXpReminderScheduler();
     await startDripBot();
 
-    console.log("✅ All background services started successfully");
+    console.log("✅ All background services started");
 }
 
 // ---------------- SCHEDULED JOBS (Cron) ----------------
@@ -139,34 +209,33 @@ function startScheduledJobs() {
     let generateMappingRunning = false;
     let checkFrontendMappingRunning = false;
 
-    // Generate mapping every hour at :50
     cron.schedule("50 * * * *", async () => {
         if (generateMappingRunning) return;
         generateMappingRunning = true;
-        await generateMapping("ALL").finally(() => generateMappingRunning = false);
+        try {
+            await generateMapping("ALL");
+        } finally {
+            generateMappingRunning = false;
+        }
     });
 
-    // Check frontend mapping every hour at :00
     cron.schedule("0 * * * *", async () => {
         if (checkFrontendMappingRunning) return;
         checkFrontendMappingRunning = true;
-        await checkFrontendMapping().finally(() => checkFrontendMappingRunning = false);
+        try {
+            await checkFrontendMapping();
+        } finally {
+            checkFrontendMappingRunning = false;
+        }
     });
 
-    // Weekly Leaderboard (Daily 18:00 UTC)
     cron.schedule("0 18 * * *", () => sendTelegramWeeklyLeaderboard(), { timezone: "UTC" });
-
-    // Final Weekly Leaderboard (Sunday 23:59 UTC)
     cron.schedule("59 59 23 * * 0", () => sendTelegramFinalWeeklyLeaderboard(), { timezone: "UTC" });
-
-    // All-Time Leaderboard (Friday 10:00 UTC)
     cron.schedule("0 10 * * 5", () => sendTelegramAllTimeLeaderboard(), { timezone: "UTC" });
-
-    // Reveal deadline notifications
     cron.schedule("*/10 * * * *", () => processRevealDeadlineNotifications(), { timezone: "UTC" });
 }
 
-// ---------------- START SERVER ----------------
+// ---------------- BOOTSTRAP ----------------
 async function bootstrap() {
     try {
         if (!process.env.BACKEND_PRIVATE_KEY) {
