@@ -188,18 +188,34 @@ async function startBackgroundServices() {
         console.error("❌ Initialization failed:", err.message);
     }
 
-    // Listeners
-    await startCoreBurnListener().catch(err => console.error("Burn listener failed:", err));
-    await startSwapListener().catch(err => console.error("Swap listener failed:", err));
-    await startNftMintListener().catch(err => console.error("NFT mint listener failed:", err));
-    await startNftMarketplaceListener().catch(err => console.error("NFT marketplace listener failed:", err));
+    // === Safe Listener Starting ===
+    const safeStart = async (name, startFn) => {
+        try {
+            console.log(`[SERVICE] Starting ${name}...`);
+            const result = startFn();
+            
+            // If it returns a promise, await it
+            if (result instanceof Promise) {
+                await result;
+            }
+            
+            console.log(`✅ ${name} started`);
+        } catch (err) {
+            console.error(`❌ ${name} failed:`, err.message || err);
+        }
+    };
 
-    // Schedulers
-    startZephyrosAdvertScheduler();
-    startInactiveXpReminderScheduler();
-    await startDripBot();
+    await safeStart("CORE Burn Listener", startCoreBurnListener);
+    await safeStart("Swap Listener", startSwapListener);
+    await safeStart("NFT Mint Listener", startNftMintListener);
+    await safeStart("NFT Marketplace Listener", startNftMarketplaceListener);
 
-    console.log("✅ All background services started");
+    // Schedulers (these are usually synchronous)
+    safeStart("Zephyros Advert Scheduler", startZephyrosAdvertScheduler);
+    safeStart("Inactive XP Reminder Scheduler", startInactiveXpReminderScheduler);
+    await safeStart("CORE Drip Bot", startDripBot);
+
+    console.log("✅ All background services initialized");
 }
 
 // ---------------- SCHEDULED JOBS (Cron) ----------------
@@ -245,8 +261,13 @@ async function bootstrap() {
         await startBackgroundServices();
 
         // One-time startup tasks
-        await reconcileActiveGamesScheduled();
-        await backfillWeeklyLeaderboardsFromGames(7);
+        await reconcileActiveGamesScheduled().catch(err => 
+            console.error("Reconcile failed:", err.message)
+        );
+        
+        await backfillWeeklyLeaderboardsFromGames(7).catch(err => 
+            console.error("Backfill failed:", err.message)
+        );
 
         app.listen(PORT, () => {
             console.log(`🚀 Backend server running on port ${PORT}`);
