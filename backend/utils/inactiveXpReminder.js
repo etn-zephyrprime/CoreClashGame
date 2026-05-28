@@ -43,7 +43,7 @@ function isWithinSendWindowUtc() {
 
   return (
     now.getUTCHours() === 14 &&
-    now.getUTCMinutes() < 10
+    now.getUTCMinutes() < 30
   );
 }
 
