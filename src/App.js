@@ -156,7 +156,12 @@ useEffect(() => {
   async function loadMapping() {
     const res = await fetch(`${BACKEND_URL}/mapping.json`);
     const data = await res.json();
-    setMapping(data);
+const stable = useRef(null);
+
+if (JSON.stringify(stable.current) !== JSON.stringify(data)) {
+  stable.current = data;
+  setMapping(data);
+}
   }
 
   loadMapping();
@@ -3055,21 +3060,13 @@ const imageFile = resolveImage(
   collectionKey,
   slot.tokenId
 );
-if (!imageFile) {
-console.warn("Missing image for:", {
-  collectionKey,
-  tokenId: slot.tokenId,
-  mappingExists: !!mapping?.[collectionKey]
-});
-  return null;
-}
-
+const imageSrc =
+  imageFile
+    ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+    : `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
 //const imageSrc = imageFile
  // ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
   //: "/placeholder.png";
-
-  const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
-
 console.log("NFT IMAGE SRC", imageSrc);
 
         return (
@@ -3203,19 +3200,11 @@ const imageFile = resolveImage(
   collectionKey,
   nftOption.tokenId
 );
-if (!imageFile) {
-  console.log("MISSING IMAGE", {
-    collectionKey,
-    tokenId: nftOption.tokenId,
-    mappingExists: !!mapping?.[collectionKey]
-  });
-  return null;
-}
-
-//const imageSrc = imageFile
- // ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-  //: "/placeholder.png";
-const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
+const imageSrc =
+  imageFile
+    ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+    : `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
+  
 console.log("NFT IMAGE SRC", imageSrc);
 
   const selected = nfts[i]?.tokenId === nftOption.tokenId;
