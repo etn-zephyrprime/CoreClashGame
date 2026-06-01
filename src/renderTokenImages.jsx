@@ -21,22 +21,13 @@ const COLLECTION_IMAGE_FORMATS = {
   VKIN: "png",
 };
 
-function resolveImageFile({ mapped, tokenId, format, tokenURI }) {
-  // 1. mapping always wins
-  if (mapped?.image_file) return mapped.image_file;
-
-  // 2. mapping token_uri
-  if (mapped?.token_uri) {
-    return mapped.token_uri.replace(/\.json$/i, `.${format}`);
+function resolveImageFile({ mapped, collection, tokenId }) {
+  if (!mapped?.image_file) {
+    console.error("[BROKEN MAPPING]", { collection, tokenId });
+    return null;
   }
 
-  // 3. backend tokenURI fallback
-  if (tokenURI) {
-    return tokenURI.replace(/\.json$/i, `.${format}`);
-  }
-
-  // 4. final fallback
-  return `${tokenId}.${format}`;
+  return mapped.image_file;
 }
 
 export const renderTokenImages = (input = [], mapping = {}) => {
@@ -54,22 +45,22 @@ export const renderTokenImages = (input = [], mapping = {}) => {
       const collection = String(rawCollection).toUpperCase();
 
       const tokenId = String(token.tokenId ?? "");
-      const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
       const mapped = mapping?.[collection]?.[tokenId];
 
       const imageFile = resolveImageFile({
         mapped,
-        tokenId,
-        format,
-        tokenURI: token.tokenURI,
+        collection,
+        tokenId
       });
 
-      if (mapped?.image_file) {
-        console.log("[MAPPING HIT]", { tokenId, collection });
-      } else {
-        console.warn("[MAPPING MISS]", { tokenId, collection });
-      }
+if (!mapped?.image_file) {
+  console.error("[BROKEN MAPPING]", {
+    collection,
+    tokenId,
+    mappingExists: !!mapping?.[collection],
+  });
+}
 
       return {
         collection,
@@ -113,9 +104,8 @@ export const renderTokenImages = (input = [], mapping = {}) => {
 
       const imageFile = resolveImageFile({
         mapped,
-        tokenId,
-        format,
-        tokenURI,
+        collection,
+        tokenId
       });
 
       return {
