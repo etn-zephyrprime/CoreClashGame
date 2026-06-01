@@ -3064,9 +3064,11 @@ console.warn("Missing image for:", {
   return null;
 }
 
-const imageSrc = imageFile
-  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-  : "/placeholder.png";
+//const imageSrc = imageFile
+ // ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  //: "/placeholder.png";
+
+  const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
 
 console.log("NFT IMAGE SRC", imageSrc);
 
@@ -3209,10 +3211,11 @@ if (!imageFile) {
   });
   return null;
 }
-const imageSrc = imageFile
-  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-  : "/placeholder.png";
 
+//const imageSrc = imageFile
+ // ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  //: "/placeholder.png";
+const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
 console.log("NFT IMAGE SRC", imageSrc);
 
   const selected = nfts[i]?.tokenId === nftOption.tokenId;
