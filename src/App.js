@@ -128,6 +128,24 @@ function getCollection(rawAddr) {
   return null;
 }
 
+const [imageCache, setImageCache] = useState({});
+
+const getImageSrc = (collectionKey, tokenId) => {
+  const key = `${collectionKey}:${tokenId}`;
+
+  if (imageCache[key]) return imageCache[key];
+
+  const imageFile = resolveImage(mapping, collectionKey, tokenId);
+
+  const src = imageFile
+    ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+    : `${BACKEND_URL}/images/${collectionKey}/${tokenId}.png`;
+
+  setImageCache((prev) => ({ ...prev, [key]: src }));
+
+  return src;
+};
+
   /* ---------- DEBUG NFTs------------*/
 useEffect(() => {
   console.group("NFT SLOTS DEBUG (ALL)");
@@ -161,18 +179,20 @@ useEffect(() => {
 
       const prev = stableMappingRef.current;
 
-      if (JSON.stringify(prev) !== JSON.stringify(data)) {
+      // Only update if version changed (if backend provides it)
+      if (!prev || prev.version !== data.version) {
         stableMappingRef.current = data;
         setMapping(data);
       }
-
-      console.log("mapping loaded");
     } catch (err) {
       console.error("mapping load failed:", err);
     }
   }
 
+  // initial load
   loadMapping();
+
+  // interval refresh
   const interval = setInterval(loadMapping, 600000);
 
   return () => clearInterval(interval);
@@ -3068,19 +3088,14 @@ const imageFile = resolveImage(
   collectionKey,
   slot.tokenId
 );
-const imageSrc =
-  imageFile
-    ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-    : `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
-//const imageSrc = imageFile
- // ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-  //: "/placeholder.png";
-console.log("NFT IMAGE SRC", imageSrc);
+const imageSrc = getImageSrc(collectionKey, slot.tokenId);
 
         return (
           <div key={`${slot.address}-${slot.tokenId}-${idx}`}>
             <img
               src={imageSrc}
+              loading="eager"
+              decoding="async"
               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
               style={{
                 width: 64,
@@ -3208,12 +3223,7 @@ const imageFile = resolveImage(
   collectionKey,
   nftOption.tokenId
 );
-const imageSrc =
-  imageFile
-    ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-    : `${BACKEND_URL}/images/${collectionKey}/${slot.tokenId}.png`;
-  
-console.log("NFT IMAGE SRC", imageSrc);
+const imageSrc = getImageSrc(collectionKey, nftOption.tokenId);
 
   const selected = nfts[i]?.tokenId === nftOption.tokenId;
 
@@ -3248,6 +3258,8 @@ console.log("NFT IMAGE SRC", imageSrc);
     >
       <img
         src={imageSrc}
+        loading="eager"
+        decoding="async"
         onError={(e) => (e.currentTarget.src = "/placeholder.png")}
         style={{
           width: "100%",
