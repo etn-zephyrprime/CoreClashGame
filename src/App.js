@@ -136,6 +136,10 @@ useEffect(() => {
   console.groupEnd();
 }, [nfts]);
 
+useEffect(() => {
+  console.log("ownedNFTs updated", ownedNFTs.length);
+}, [ownedNFTs]);
+
 const [nftRefreshLoading, setNftRefreshLoading] = useState(false);
 const [nftRefreshMessage, setNftRefreshMessage] = useState("");
 const [nftRefreshCooldownUntil, setNftRefreshCooldownUntil] = useState(0);
@@ -152,7 +156,7 @@ useEffect(() => {
 
   loadMapping();
   const interval = setInterval(loadMapping, 600000);
-
+console.log("mapping loaded");
   return () => clearInterval(interval);
 }, []);
 
@@ -3041,7 +3045,11 @@ return (
 const collectionKey = getCollection(slot.address);
 if (!collectionKey) return null;
 
-const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
+const imageFile = resolveImage(
+  mapping,
+  collectionKey,
+  nftOption.tokenId
+);
 if (!imageFile) {
 console.warn("Missing image for:", {
   collectionKey,
@@ -3051,6 +3059,7 @@ console.warn("Missing image for:", {
   return null;
 }
 
+console.log("NFT IMAGE SRC", imageSrc);
 const imageSrc = imageFile
   ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
   : "/placeholder.png";
@@ -3181,7 +3190,12 @@ const imageSrc = imageFile
   const collectionKey = getCollection(nftOption.nftAddress);
   if (!collectionKey) return null;
 
-const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
+const imageFile = resolveImage(
+  mapping,
+  collectionKey,
+  nftOption.tokenId
+);
+console.log("NFT IMAGE SRC", imageSrc);
 const imageSrc = imageFile
   ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
   : "/placeholder.png";
