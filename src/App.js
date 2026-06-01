@@ -127,6 +127,10 @@ function resolveImage(mapping, collection, tokenId) {
   return mapping?.[collection]?.[String(tokenId)]?.image_file || null;
 }
 
+function normalizeTokenId(id) {
+  return String(id ?? "").replace(/^0+/, "").trim();
+}
+
   /* ---------- DEBUG NFTs------------*/
 useEffect(() => {
   console.group("NFT SLOTS DEBUG (ALL)");
@@ -3184,7 +3188,7 @@ const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
 const imageFile =
   resolveImage(mapping, collectionKey, normalizeTokenId(slot.tokenId)) ||
   `${slot.tokenId}.png`;
-  
+
 const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
 
         const selected = nfts[i]?.tokenId === nftOption.tokenId;
