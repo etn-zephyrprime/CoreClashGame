@@ -83,10 +83,10 @@ app.get("/metadata/:collection/:tokenId", (req, res) => {
         const mapping = loadMapping();
         const collectionKey = collection.toUpperCase();
 
-        const mapped = mapping[collectionKey]?.[String(tokenId)];
-        if (!mapped) {
-            return res.status(404).json({ error: "Token not found in mapping" });
-        }
+const normalizeTokenId = (id) =>
+  String(id).trim().replace(/^0+/, "");
+
+const mapped = mapping[collectionKey]?.[normalizeTokenId(tokenId)];
 
         const jsonFile = `${tokenId}.json`;
 
