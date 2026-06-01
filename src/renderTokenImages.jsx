@@ -47,20 +47,20 @@ export const renderTokenImages = (input = [], mapping = {}) => {
     tokens = input.map((token) => {
       const rawCollection = token.collection || token.mappingKey || "VKIN";
       const collection = String(rawCollection).toUpperCase();
-      const tokenId = String(token.tokenId ?? "");
+      const tokenId = String(tokenId ?? "");
 const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
 const mapped = mapping?.[collection]?.[String(tokenId)];
 
 if (mapped?.image_file) {
   console.log("[MAPPING HIT]", {
-    tokenId: id,
+    tokenId,
     collection,
     image_file: mapped.image_file,
   });
 } else {
   console.warn("[MAPPING MISS]", {
-    tokenId: id,
+    tokenId,
     collection,
   });
 }
@@ -78,15 +78,20 @@ const imageFile = resolveImageFile({ mapped, tokenId, format });
     const { nftContracts = [], tokenIds = [], tokenURIs = [] } = input;
 
     tokens = tokenIds.map((id, idx) => {
-      const rawAddr = nftContracts[idx];
-      const tokenURI = tokenURIs?.[idx];
-addr = addr.slice(-40);
+const rawAddr = nftContracts[idx];
+const tokenURI = tokenURIs?.[idx];
+
+let addr = (rawAddr || "")
+  .toLowerCase()
+  .replace(/[^0-9a-f]/g, "");
+
 if (addr.length === 40) {
   addr = "0x" + addr;
 } else {
   console.warn("Bad address detected:", rawAddr);
 }
-      let collection = addressToCollection[addr];
+
+let collection = addressToCollection[addr];
 
       if (!collection && (addr.includes("8cfb") || addr.includes("8cfbb04c"))) {
         console.log(`Slot ${idx} VQLE pattern match → forcing VQLE`);
@@ -108,13 +113,13 @@ const mapped = mapping?.[collection]?.[String(tokenId)];
 
 if (mapped?.image_file) {
   console.log("[MAPPING HIT]", {
-    tokenId: id,
+    tokenId,
     collection,
     image_file: mapped.image_file,
   });
 } else {
   console.warn("[MAPPING MISS]", {
-    tokenId: id,
+    tokenId,
     collection,
   });
 }
