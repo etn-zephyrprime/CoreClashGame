@@ -22,10 +22,7 @@ const COLLECTION_IMAGE_FORMATS = {
 };
 
 function resolveImageFile({ mapped, tokenId, format, tokenURI }) {
-  if (tokenURI) {
-    return tokenURI.replace(/\.json$/i, `.${format}`);
-  }
-
+  // 1. ALWAYS trust mapping first
   if (mapped?.image_file) {
     return mapped.image_file;
   }
@@ -34,7 +31,16 @@ function resolveImageFile({ mapped, tokenId, format, tokenURI }) {
     return mapped.token_uri.replace(/\.json$/i, `.${format}`);
   }
 
-  return `${tokenId}.${format}`;
+  // 2. tokenURI only if NO mapping exists
+  if (!mapped && tokenURI) {
+    return tokenURI.replace(/\.json$/i, `.${format}`);
+  }
+
+console.warn("[IMAGE FALLBACK USED]", {
+  collection,
+  tokenId,
+});
+return `${tokenId}.${format}`;
 }
 
 export const renderTokenImages = (input = [], mapping = {}) => {
@@ -50,7 +56,7 @@ export const renderTokenImages = (input = [], mapping = {}) => {
       const tokenId = String(tokenId ?? "");
 const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
-const mapped = mapping?.[collection]?.[String(tokenId)];
+const mapped = mapping?.[collection]?.[tokenId];
 
 if (mapped?.image_file) {
   console.log("[MAPPING HIT]", {
@@ -106,10 +112,10 @@ let collection = addressToCollection[addr];
       }
 
       const mappingKey = collection;
-      const tokenId = String(id);
+      const tokenId = String(token.tokenId ?? "");
 
 const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
-const mapped = mapping?.[collection]?.[String(tokenId)];
+const mapped = mapping?.[collection]?.[tokenId];
 
 if (mapped?.image_file) {
   console.log("[MAPPING HIT]", {
