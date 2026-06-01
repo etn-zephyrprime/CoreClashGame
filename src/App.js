@@ -3048,7 +3048,7 @@ if (!collectionKey) return null;
 const imageFile = resolveImage(
   mapping,
   collectionKey,
-  nftOption.tokenId
+  slot.tokenId
 );
 if (!imageFile) {
 console.warn("Missing image for:", {
