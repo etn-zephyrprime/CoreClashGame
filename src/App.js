@@ -3050,11 +3050,11 @@ if (!collectionKey) return null;
 
 const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
 if (!imageFile) {
-  console.warn("Missing image for:", {
-    collectionKey,
-    tokenId,
-    mappingExists: !!mapping?.[collectionKey]
-  });
+console.warn("Missing image for:", {
+  collectionKey,
+  tokenId: slot.tokenId,
+  mappingExists: !!mapping?.[collectionKey]
+});
   return null;
 }
 
