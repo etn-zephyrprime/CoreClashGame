@@ -104,7 +104,12 @@ const [showNftGallery, setShowNftGallery] = useState(false);
 const selectedNftCount = nfts.filter((n) => n?.tokenId).length;
 
 function normalizeTokenId(id) {
-  return String(id ?? "").replace(/^0+/, "").trim();
+  return String(id ?? "").trim().replace(/^0+/, "");
+}
+
+function resolveImage(mapping, collection, tokenId) {
+  const cleanId = normalizeTokenId(tokenId);
+  return mapping?.[collection]?.[cleanId]?.image_file || null;
 }
 
 function getCollection(rawAddr) {
@@ -116,18 +121,6 @@ function getCollection(rawAddr) {
   if (addr === EVG_CONTRACT_ADDRESS.toLowerCase()) return "EVG";
 
   return null;
-}
-
-function normalizeTokenId(id) {
-  return String(id ?? "").replace(/^0+/, "").trim();
-}
-
-function resolveImage(mapping, collection, tokenId) {
-
-  const cleanCollection = String(collection).toUpperCase();
-  const cleanId = String(tokenId).trim().replace(/^0+/, "");
-
-  return mapping?.[cleanCollection]?.[cleanId]?.image_file || null;
 }
 
   /* ---------- DEBUG NFTs------------*/
@@ -3045,7 +3038,7 @@ return (
       .filter((slot) => slot?.tokenId)
       .map((slot, idx) => {
 
-const collectionKey = getCollection(slot.address)?.toUpperCase();
+const collectionKey = getCollection(slot.address);
 if (!collectionKey) return null;
 
 const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
@@ -3058,7 +3051,9 @@ console.warn("Missing image for:", {
   return null;
 }
 
-const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
+const imageSrc = imageFile
+  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  : "/placeholder.png";
 
         return (
           <div key={`${slot.address}-${slot.tokenId}-${idx}`}>
@@ -3186,10 +3181,10 @@ const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
   const collectionKey = getCollection(nftOption.nftAddress);
   if (!collectionKey) return null;
 
-  const imageFile = resolveImage(mapping, collectionKey, nftOption.tokenId);
-  if (!imageFile) return null;
-
-  const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
+const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
+const imageSrc = imageFile
+  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  : "/placeholder.png";
 
   const selected = nfts[i]?.tokenId === nftOption.tokenId;
 
