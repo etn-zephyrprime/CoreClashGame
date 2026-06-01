@@ -108,18 +108,23 @@ function normalizeTokenId(id) {
 }
 
 function resolveImage(mapping, collection, tokenId) {
-  const cleanId = normalizeTokenId(tokenId);
+  const cleanId = String(tokenId).replace(/^0+/, "").trim();
   return mapping?.[collection]?.[cleanId]?.image_file || null;
 }
 
+function normalizeAddr(addr) {
+  return (addr || "").toLowerCase();
+}
+
 function getCollection(rawAddr) {
-  const addr = (rawAddr || "").toLowerCase().trim();
+  const addr = normalizeAddr(rawAddr);
 
   if (addr === VKIN_CONTRACT_ADDRESS.toLowerCase()) return "VKIN";
   if (addr === VQLE_CONTRACT_ADDRESS.toLowerCase()) return "VQLE";
   if (addr === SCIONS_CONTRACT_ADDRESS.toLowerCase()) return "SCIONS";
   if (addr === EVG_CONTRACT_ADDRESS.toLowerCase()) return "EVG";
 
+  console.warn("[UNKNOWN COLLECTION ADDRESS]", rawAddr);
   return null;
 }
 
