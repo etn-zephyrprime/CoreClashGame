@@ -21,6 +21,9 @@ const COLLECTION_IMAGE_FORMATS = {
   VKIN: "png",
 };
 
+const normalizeTokenId = (id) =>
+  String(id).trim().replace(/^0+/, "");
+
 export const renderTokenImages = (input = [], mapping = {}) => {
   console.log("[renderTokenImages] Raw input:", input);
   console.log("[renderTokenImages] Live mapping loaded:", mapping);
@@ -31,26 +34,24 @@ export const renderTokenImages = (input = [], mapping = {}) => {
   // ARRAY INPUT MODE
   // =========================
   if (Array.isArray(input)) {
-    tokens = input.map((token) => {
-      const rawCollection = token.collection || token.mappingKey || "VKIN";
-      const collection = String(rawCollection).toUpperCase();
+tokens = input.map((token) => {
+  const rawCollection = token.collection || token.mappingKey || "VKIN";
+  const collection = String(rawCollection).toUpperCase();
 
-      const tokenId = String(token.tokenId ?? "");
+  const tokenId = normalizeTokenId(token.tokenId);
 
-const mapped = mapping?.[collection]?.[String(tokenId)];
-const imageFile = mapped?.image_file;
+  const mapped = mapping?.[collection]?.[tokenId];
 
-if (!imageFile) {
-  console.error("[MISSING MAPPING]", { collection, tokenId });
-}
+  const imageFile =
+    mapped?.image_file ??
+    `${tokenId}.${COLLECTION_IMAGE_FORMATS[collection] || "png"}`;
 
-      return {
-        collection,
-        mappingKey: collection,
-        tokenId,
-        imageFile,
-      };
-    });
+  return {
+    collection,
+    tokenId,
+    imageFile,
+  };
+});
   }
 
   // =========================
@@ -59,39 +60,40 @@ if (!imageFile) {
   else if (input && typeof input === "object") {
     const { nftContracts = [], tokenIds = [], tokenURIs = [] } = input;
 
-    tokens = tokenIds.map((id, idx) => {
-      const rawAddr = nftContracts[idx];
-      const tokenURI = tokenURIs?.[idx];
+tokens = tokenIds.map((id, idx) => {
+  const rawAddr = nftContracts[idx];
+  const tokenURI = tokenURIs?.[idx];
 
-      let addr = (rawAddr || "")
-        .toLowerCase()
-        .replace(/[^0-9a-f]/g, "");
+  let addr = (rawAddr || "")
+    .toLowerCase()
+    .replace(/[^0-9a-f]/g, "");
 
-      addr = addr.length === 40 ? "0x" + addr : addr;
+  addr = addr.length === 40 ? "0x" + addr : addr;
 
-      let collection = addressToCollection[addr];
+  let collection = addressToCollection[addr];
 
-      if (!collection && addr.includes("8cfb")) {
-        collection = "VQLE";
-      }
+  if (!collection && addr.includes("8cfb")) {
+    collection = "VQLE";
+  }
 
-      if (!collection) {
-        console.warn("Defaulting to VKIN:", addr);
-        collection = "VKIN";
-      }
+  if (!collection) {
+    collection = "VKIN";
+  }
 
-      const tokenId = String(id);
-      const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
-      const mapped = mapping?.[collection]?.[String(id)];
-      const imageFile = mapped?.image_file;
+  const tokenId = normalizeTokenId(id);
 
-return {
-        collection,
-        mappingKey: collection,
-        tokenId,
-        imageFile,
-      };
-    });
+  const mapped = mapping?.[collection]?.[tokenId];
+
+  const imageFile =
+    mapped?.image_file ??
+    `${tokenId}.${COLLECTION_IMAGE_FORMATS[collection] || "png"}`;
+
+  return {
+    collection,
+    tokenId,
+    imageFile,
+  };
+});
   }
 
   if (!tokens.length) return null;
