@@ -40,11 +40,14 @@ tokens = input.map((token) => {
 
   const tokenId = normalizeTokenId(token.tokenId);
 
-  const mapped = mapping?.[collection]?.[tokenId];
+const mapped = mapping?.[collection]?.[tokenId];
 
-  const imageFile =
-    mapped?.image_file ??
-    `${tokenId}.${COLLECTION_IMAGE_FORMATS[collection] || "png"}`;
+const imageFile = mapped?.image_file;
+
+if (!imageFile) {
+  console.warn("[MISSING IMAGE MAP]", { collection, tokenId });
+  return null;
+}
 
   return {
     collection,
@@ -82,11 +85,14 @@ tokens = tokenIds.map((id, idx) => {
 
   const tokenId = normalizeTokenId(id);
 
-  const mapped = mapping?.[collection]?.[tokenId];
+const mapped = mapping?.[collection]?.[tokenId];
 
-  const imageFile =
-    mapped?.image_file ??
-    `${tokenId}.${COLLECTION_IMAGE_FORMATS[collection] || "png"}`;
+const imageFile = mapped?.image_file;
+
+if (!imageFile) {
+  console.warn("[MISSING IMAGE MAP]", { collection, tokenId });
+  return null;
+}
 
   return {
     collection,
