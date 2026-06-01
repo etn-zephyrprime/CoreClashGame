@@ -151,22 +151,30 @@ const [nftRefreshCooldownUntil, setNftRefreshCooldownUntil] = useState(0);
 
 /* ---------------- MAPPING (CSV → JSON) ---------------- */
 const [mapping, setMapping] = useState({});
+const stableMappingRef = useRef(null);
 
 useEffect(() => {
   async function loadMapping() {
-    const res = await fetch(`${BACKEND_URL}/mapping.json`);
-    const data = await res.json();
-const stable = useRef(null);
+    try {
+      const res = await fetch(`${BACKEND_URL}/mapping.json`);
+      const data = await res.json();
 
-if (JSON.stringify(stable.current) !== JSON.stringify(data)) {
-  stable.current = data;
-  setMapping(data);
-}
+      const prev = stableMappingRef.current;
+
+      if (JSON.stringify(prev) !== JSON.stringify(data)) {
+        stableMappingRef.current = data;
+        setMapping(data);
+      }
+
+      console.log("mapping loaded");
+    } catch (err) {
+      console.error("mapping load failed:", err);
+    }
   }
 
   loadMapping();
   const interval = setInterval(loadMapping, 600000);
-console.log("mapping loaded");
+
   return () => clearInterval(interval);
 }, []);
 
