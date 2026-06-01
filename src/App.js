@@ -103,32 +103,31 @@ const [nfts, setNfts] = useState([
 const [showNftGallery, setShowNftGallery] = useState(false);
 const selectedNftCount = nfts.filter((n) => n?.tokenId).length;
 
-function normalizeAddress(addr) {
-  return (addr || "").toLowerCase().trim();
+function normalizeTokenId(id) {
+  return String(id ?? "").replace(/^0+/, "").trim();
 }
 
 function getCollection(rawAddr) {
-  const addr = normalizeAddress(rawAddr);
+  const addr = (rawAddr || "").toLowerCase().trim();
 
-  const vkin = VKIN_CONTRACT_ADDRESS.toLowerCase();
-  const vqle = VQLE_CONTRACT_ADDRESS.toLowerCase();
-  const scions = SCIONS_CONTRACT_ADDRESS.toLowerCase();
-  const evg = EVG_CONTRACT_ADDRESS.toLowerCase();
-
-  if (addr === vkin) return "VKIN";
-  if (addr === vqle) return "VQLE";
-  if (addr === scions) return "SCIONS";
-  if (addr === evg) return "EVG";
+  if (addr === VKIN_CONTRACT_ADDRESS.toLowerCase()) return "VKIN";
+  if (addr === VQLE_CONTRACT_ADDRESS.toLowerCase()) return "VQLE";
+  if (addr === SCIONS_CONTRACT_ADDRESS.toLowerCase()) return "SCIONS";
+  if (addr === EVG_CONTRACT_ADDRESS.toLowerCase()) return "EVG";
 
   return null;
 }
 
 function resolveImage(mapping, collection, tokenId) {
-  return mapping?.[collection]?.[String(tokenId)]?.image_file || null;
+  return null;
 }
 
 function normalizeTokenId(id) {
   return String(id ?? "").replace(/^0+/, "").trim();
+}
+
+function getMappedImage(mapping, collection, tokenId) {
+  const cleanId = normalizeTokenId(tokenId);
 }
 
   /* ---------- DEBUG NFTs------------*/
@@ -153,18 +152,13 @@ const [mapping, setMapping] = useState({});
 
 useEffect(() => {
   async function loadMapping() {
-    try {
-      const res = await fetch(`${BACKEND_URL}/mapping.json`);
-      const data = await res.json();
-      setMapping(data);
-    } catch (err) {
-      console.error("Failed to load mapping:", err);
-    }
+    const res = await fetch(`${BACKEND_URL}/mapping.json`);
+    const data = await res.json();
+    setMapping(data);
   }
 
   loadMapping();
-
-  const interval = setInterval(loadMapping, 300000);
+  const interval = setInterval(loadMapping, 600000);
 
   return () => clearInterval(interval);
 }, []);
@@ -3051,13 +3045,11 @@ return (
       .filter((slot) => slot?.tokenId)
       .map((slot, idx) => {
 const collectionKey = getCollection(slot.address);
-if (!collectionKey) return null;
+const imageFile = getMappedImage(mapping, collectionKey, slot.tokenId);
 
-const imageFile =
-  resolveImage(mapping, collectionKey, normalizeTokenId(slot.tokenId)) ||
-  `${slot.tokenId}.png`;
-
-const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
+const imageSrc = imageFile
+  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  : "/placeholder.png";
 
         return (
           <div key={`${slot.address}-${slot.tokenId}-${idx}`}>
@@ -3182,14 +3174,12 @@ const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
   <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
     <div style={{ display: "flex", gap: 10, overflowX: "auto" }}>
       {ownedNFTs.map((nftOption) => {
-        const collectionKey = getCollection(nftOption.nftAddress);
-        if (!collectionKey) return null;
+const collectionKey = getCollection(slot.address);
+const imageFile = getMappedImage(mapping, collectionKey, slot.tokenId);
 
-const imageFile =
-  resolveImage(mapping, collectionKey, normalizeTokenId(slot.tokenId)) ||
-  `${slot.tokenId}.png`;
-
-const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
+const imageSrc = imageFile
+  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  : "/placeholder.png";
 
         const selected = nfts[i]?.tokenId === nftOption.tokenId;
 
