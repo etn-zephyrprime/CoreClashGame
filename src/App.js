@@ -3196,6 +3196,14 @@ const imageFile = resolveImage(
   collectionKey,
   nftOption.tokenId
 );
+if (!imageFile) {
+  console.log("MISSING IMAGE", {
+    collectionKey,
+    tokenId: nftOption.tokenId,
+    mappingExists: !!mapping?.[collectionKey]
+  });
+  return null;
+}
 const imageSrc = imageFile
   ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
   : "/placeholder.png";
