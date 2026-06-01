@@ -22,56 +22,54 @@ const COLLECTION_IMAGE_FORMATS = {
 };
 
 function resolveImageFile({ mapped, tokenId, format, tokenURI }) {
-  // 1. ALWAYS trust mapping first
-  if (mapped?.image_file) {
-    return mapped.image_file;
-  }
+  // 1. mapping always wins
+  if (mapped?.image_file) return mapped.image_file;
 
+  // 2. mapping token_uri
   if (mapped?.token_uri) {
     return mapped.token_uri.replace(/\.json$/i, `.${format}`);
   }
 
-  // 2. tokenURI only if NO mapping exists
-  if (!mapped && tokenURI) {
+  // 3. backend tokenURI fallback
+  if (tokenURI) {
     return tokenURI.replace(/\.json$/i, `.${format}`);
   }
 
-console.warn("[IMAGE FALLBACK USED]", {
-  collection,
-  tokenId,
-});
-return `${tokenId}.${format}`;
+  // 4. final fallback
+  return `${tokenId}.${format}`;
 }
 
 export const renderTokenImages = (input = [], mapping = {}) => {
-  console.log("[renderTokenImages] Raw input:", JSON.stringify(input, null, 2));
+  console.log("[renderTokenImages] Raw input:", input);
   console.log("[renderTokenImages] Live mapping loaded:", mapping);
 
   let tokens = [];
 
+  // =========================
+  // ARRAY INPUT MODE
+  // =========================
   if (Array.isArray(input)) {
     tokens = input.map((token) => {
       const rawCollection = token.collection || token.mappingKey || "VKIN";
       const collection = String(rawCollection).toUpperCase();
-      const tokenId = String(tokenId ?? "");
-const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
-const mapped = mapping?.[collection]?.[tokenId];
+      const tokenId = String(token.tokenId ?? "");
+      const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
 
-if (mapped?.image_file) {
-  console.log("[MAPPING HIT]", {
-    tokenId,
-    collection,
-    image_file: mapped.image_file,
-  });
-} else {
-  console.warn("[MAPPING MISS]", {
-    tokenId,
-    collection,
-  });
-}
+      const mapped = mapping?.[collection]?.[tokenId];
 
-const imageFile = resolveImageFile({ mapped, tokenId, format });
+      const imageFile = resolveImageFile({
+        mapped,
+        tokenId,
+        format,
+        tokenURI: token.tokenURI,
+      });
+
+      if (mapped?.image_file) {
+        console.log("[MAPPING HIT]", { tokenId, collection });
+      } else {
+        console.warn("[MAPPING MISS]", { tokenId, collection });
+      }
 
       return {
         collection,
@@ -80,95 +78,72 @@ const imageFile = resolveImageFile({ mapped, tokenId, format });
         imageFile,
       };
     });
-  } else if (input && typeof input === "object") {
+  }
+
+  // =========================
+  // CONTRACT INPUT MODE
+  // =========================
+  else if (input && typeof input === "object") {
     const { nftContracts = [], tokenIds = [], tokenURIs = [] } = input;
 
     tokens = tokenIds.map((id, idx) => {
-const rawAddr = nftContracts[idx];
-const tokenURI = tokenURIs?.[idx];
+      const rawAddr = nftContracts[idx];
+      const tokenURI = tokenURIs?.[idx];
 
-let addr = (rawAddr || "")
-  .toLowerCase()
-  .replace(/[^0-9a-f]/g, "");
+      let addr = (rawAddr || "")
+        .toLowerCase()
+        .replace(/[^0-9a-f]/g, "");
 
-if (addr.length === 40) {
-  addr = "0x" + addr;
-} else {
-  console.warn("Bad address detected:", rawAddr);
-}
+      addr = addr.length === 40 ? "0x" + addr : addr;
 
-let collection = addressToCollection[addr];
+      let collection = addressToCollection[addr];
 
-      if (!collection && (addr.includes("8cfb") || addr.includes("8cfbb04c"))) {
-        console.log(`Slot ${idx} VQLE pattern match → forcing VQLE`);
+      if (!collection && addr.includes("8cfb")) {
         collection = "VQLE";
       }
 
       if (!collection) {
-        console.warn(
-          `Slot ${idx} NO MATCH for cleaned addr "${addr}" (raw: "${rawAddr}") — defaulting to VKIN`
-        );
+        console.warn("Defaulting to VKIN:", addr);
         collection = "VKIN";
       }
 
-      const mappingKey = collection;
-      const tokenId = String(token.tokenId ?? "");
+      const tokenId = String(id);
+      const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
+      const mapped = mapping?.[collection]?.[tokenId];
 
-const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
-const mapped = mapping?.[collection]?.[tokenId];
+      const imageFile = resolveImageFile({
+        mapped,
+        tokenId,
+        format,
+        tokenURI,
+      });
 
-if (mapped?.image_file) {
-  console.log("[MAPPING HIT]", {
-    tokenId,
-    collection,
-    image_file: mapped.image_file,
-  });
-} else {
-  console.warn("[MAPPING MISS]", {
-    tokenId,
-    collection,
-  });
-}
-
-const imageFile = resolveImageFile({
-  mapped,
-  tokenId,
-  format,
-  tokenURI
-});
-
-  return {
-    collection,
-    mappingKey,
-    tokenId,
-    imageFile,
-  };
-});
-
-    if (!tokens.length) return null;
-
-    return (
-      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-        {tokens.map((token, i) => {
-          const { collection, mappingKey, tokenId, imageFile } = token;
-
-          let finalImageFile = imageFile;
-
-          const src = `${BACKEND_URL}/images/${collection}/${finalImageFile}`;
-
-          console.log(`Rendering slot ${i}: ${src}`);
-
-          return (
-            <StableImage
-              key={`${collection}-${tokenId}-${i}`}
-              src={src}
-              alt={`${collection} #${tokenId}`}
-            />
-          );
-        })}
-      </div>
-    );
+      return {
+        collection,
+        mappingKey: collection,
+        tokenId,
+        imageFile,
+      };
+    });
   }
 
-  return null;
-}
+  if (!tokens.length) return null;
+
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+      {tokens.map((token, i) => {
+        const { collection, tokenId, imageFile } = token;
+
+        const src = `${BACKEND_URL}/images/${collection}/${imageFile}`;
+
+        return (
+          <StableImage
+            key={`${collection}-${tokenId}-${i}`}
+            src={src}
+            alt={`${collection} #${tokenId}`}
+          />
+        );
+      })}
+    </div>
+  );
+};
