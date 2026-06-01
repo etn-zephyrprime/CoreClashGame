@@ -24,6 +24,7 @@ const XP_FILE = path.join(BASE_DATA_DIR, "playerXp.json");
 const XP_ACTIONS_FILE = path.join(BASE_DATA_DIR, "xpActions.json");
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_INACTIVE_DAYS = 30;
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // hourly
 const SEND_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000; // every 3 days
@@ -209,11 +210,22 @@ export async function runInactiveXpReminderCheck() {
       continue;
     }
 
-    const daysInactive = Math.floor(
-      (now - lastActivity.getTime()) / ONE_DAY_MS
-    );
+const daysInactive = Math.floor(
+  (now - lastActivity.getTime()) / ONE_DAY_MS
+);
 
-    const stage = getInactiveStage(daysInactive);
+// 🚫 HARD FILTER: ignore wallets inactive > 30 days
+if (daysInactive > MAX_INACTIVE_DAYS) {
+  nextWalletState[walletLc] = {
+    reminderStage: 5,
+    lastReminderCheckAt: new Date().toISOString(),
+    lastDaysInactive: daysInactive,
+    lastActivityAt: lastActivity.toISOString(),
+  };
+  continue;
+}
+
+const stage = getInactiveStage(daysInactive);
 
     // Active again
     if (stage === 0) {
