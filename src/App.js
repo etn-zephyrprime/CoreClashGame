@@ -103,13 +103,22 @@ const [nfts, setNfts] = useState([
 const [showNftGallery, setShowNftGallery] = useState(false);
 const selectedNftCount = nfts.filter((n) => n?.tokenId).length;
 
-function getCollection(rawAddr) {
-  const addr = (rawAddr || "").toLowerCase();
+function normalizeAddress(addr) {
+  return (addr || "").toLowerCase().trim();
+}
 
-  if (addr === VKIN_CONTRACT_ADDRESS.toLowerCase()) return "VKIN";
-  if (addr === VQLE_CONTRACT_ADDRESS.toLowerCase()) return "VQLE";
-  if (addr === SCIONS_CONTRACT_ADDRESS.toLowerCase()) return "SCIONS";
-  if (addr === EVG_CONTRACT_ADDRESS.toLowerCase()) return "EVG";
+function getCollection(rawAddr) {
+  const addr = normalizeAddress(rawAddr);
+
+  const vkin = VKIN_CONTRACT_ADDRESS.toLowerCase();
+  const vqle = VQLE_CONTRACT_ADDRESS.toLowerCase();
+  const scions = SCIONS_CONTRACT_ADDRESS.toLowerCase();
+  const evg = EVG_CONTRACT_ADDRESS.toLowerCase();
+
+  if (addr === vkin) return "VKIN";
+  if (addr === vqle) return "VQLE";
+  if (addr === scions) return "SCIONS";
+  if (addr === evg) return "EVG";
 
   return null;
 }
@@ -3040,8 +3049,9 @@ return (
 const collectionKey = getCollection(slot.address);
 if (!collectionKey) return null;
 
-const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
-if (!imageFile) return null;
+const imageFile =
+  resolveImage(mapping, collectionKey, normalizeTokenId(slot.tokenId)) ||
+  `${slot.tokenId}.png`;
 
 const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
 
@@ -3171,9 +3181,10 @@ const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
         const collectionKey = getCollection(nftOption.nftAddress);
         if (!collectionKey) return null;
 
-const imageFile = resolveImage(mapping, collectionKey, nftOption.tokenId);
-if (!imageFile) return null;
-
+const imageFile =
+  resolveImage(mapping, collectionKey, normalizeTokenId(slot.tokenId)) ||
+  `${slot.tokenId}.png`;
+  
 const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
 
         const selected = nfts[i]?.tokenId === nftOption.tokenId;
