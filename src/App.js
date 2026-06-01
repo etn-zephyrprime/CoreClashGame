@@ -123,8 +123,11 @@ function normalizeTokenId(id) {
 }
 
 function resolveImage(mapping, collection, tokenId) {
-  const cleanId = normalizeTokenId(tokenId);
-  return mapping?.[collection]?.[cleanId]?.image_file || null;
+
+  const cleanCollection = String(collection).toUpperCase();
+  const cleanId = String(tokenId).trim().replace(/^0+/, "");
+
+  return mapping?.[cleanCollection]?.[cleanId]?.image_file || null;
 }
 
   /* ---------- DEBUG NFTs------------*/
@@ -3042,13 +3045,18 @@ return (
       .filter((slot) => slot?.tokenId)
       .map((slot, idx) => {
 
-if (!mapping || Object.keys(mapping).length === 0) return null;
-
-const collectionKey = getCollection(slot.address);
+const collectionKey = getCollection(slot.address)?.toUpperCase();
 if (!collectionKey) return null;
 
 const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
-if (!imageFile) return null;
+if (!imageFile) {
+  console.warn("Missing image for:", {
+    collectionKey,
+    tokenId,
+    mappingExists: !!mapping?.[collectionKey]
+  });
+  return null;
+}
 
 const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
 
@@ -3177,8 +3185,6 @@ const imageSrc = `${BACKEND_URL}/images/${collectionKey}/${imageFile}`;
 {ownedNFTs.map((nftOption) => {
   const collectionKey = getCollection(nftOption.nftAddress);
   if (!collectionKey) return null;
-
-  if (!mapping || Object.keys(mapping).length === 0) return null;
 
   const imageFile = resolveImage(mapping, collectionKey, nftOption.tokenId);
   if (!imageFile) return null;
