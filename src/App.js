@@ -3059,10 +3059,11 @@ console.warn("Missing image for:", {
   return null;
 }
 
-console.log("NFT IMAGE SRC", imageSrc);
 const imageSrc = imageFile
   ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
   : "/placeholder.png";
+
+console.log("NFT IMAGE SRC", imageSrc);
 
         return (
           <div key={`${slot.address}-${slot.tokenId}-${idx}`}>
@@ -3195,10 +3196,19 @@ const imageFile = resolveImage(
   collectionKey,
   nftOption.tokenId
 );
-console.log("NFT IMAGE SRC", imageSrc);
+if (!imageFile) {
+  console.log("MISSING IMAGE", {
+    collectionKey,
+    tokenId: nftOption.tokenId,
+    mappingExists: !!mapping?.[collectionKey]
+  });
+  return null;
+}
 const imageSrc = imageFile
   ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
   : "/placeholder.png";
+
+console.log("NFT IMAGE SRC", imageSrc);
 
   const selected = nfts[i]?.tokenId === nftOption.tokenId;
 
