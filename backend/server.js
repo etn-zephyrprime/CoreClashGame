@@ -70,6 +70,13 @@ app.use("/xp", xpRouter);
 app.use("/admin", testTelegramRoutes);
 
 // ---------------- METADATA ROUTE ----------------
+        const COLLECTION_IMAGE_FORMATS = {
+            EVG: "webp",
+            VQLE: "png",
+            SCIONS: "png",
+            VKIN: "png",
+        };
+
 app.get("/metadata/:collection/:tokenId", (req, res) => {
     try {
         const { collection, tokenId } = req.params;
@@ -81,17 +88,12 @@ app.get("/metadata/:collection/:tokenId", (req, res) => {
             return res.status(404).json({ error: "Token not found in mapping" });
         }
 
-        const jsonFile = mapped.token_uri || `${tokenId}.json`;
+        const jsonFile = `${tokenId}.json`;
 
-        const COLLECTION_IMAGE_FORMATS = {
-            EVG: "webp",
-            VQLE: "png",
-            SCIONS: "png",
-            VKIN: "png",
-        };
-
-        const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
-        const imageFile = mapped.image_file || `${tokenId}.${format}`;
+        const format = COLLECTION_IMAGE_FORMATS[collectionKey] || "png";
+const imageFile =
+  mapped?.image_file ??
+  `${tokenId}.${format}`;
 
         const filePath = path.join(METADATA_JSON_DIR, collectionKey, jsonFile);
 
