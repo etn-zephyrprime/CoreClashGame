@@ -21,15 +21,6 @@ const COLLECTION_IMAGE_FORMATS = {
   VKIN: "png",
 };
 
-function resolveImageFile({ mapped, collection, tokenId }) {
-  if (!mapped?.image_file) {
-    console.error("[BROKEN MAPPING]", { collection, tokenId });
-    return null;
-  }
-
-  return mapped.image_file;
-}
-
 export const renderTokenImages = (input = [], mapping = {}) => {
   console.log("[renderTokenImages] Raw input:", input);
   console.log("[renderTokenImages] Live mapping loaded:", mapping);
@@ -46,20 +37,11 @@ export const renderTokenImages = (input = [], mapping = {}) => {
 
       const tokenId = String(token.tokenId ?? "");
 
-      const mapped = mapping?.[collection]?.[tokenId];
+const mapped = mapping?.[collection]?.[String(tokenId)];
+const imageFile = mapped?.image_file;
 
-      const imageFile = resolveImageFile({
-        mapped,
-        collection,
-        tokenId
-      });
-
-if (!mapped?.image_file) {
-  console.error("[BROKEN MAPPING]", {
-    collection,
-    tokenId,
-    mappingExists: !!mapping?.[collection],
-  });
+if (!imageFile) {
+  console.error("[MISSING MAPPING]", { collection, tokenId });
 }
 
       return {
@@ -100,15 +82,10 @@ if (!mapped?.image_file) {
 
       const tokenId = String(id);
       const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
-      const mapped = mapping?.[collection]?.[tokenId];
+      const mapped = mapping?.[collection]?.[String(id)];
+      const imageFile = mapped?.image_file;
 
-      const imageFile = resolveImageFile({
-        mapped,
-        collection,
-        tokenId
-      });
-
-      return {
+return {
         collection,
         mappingKey: collection,
         tokenId,
