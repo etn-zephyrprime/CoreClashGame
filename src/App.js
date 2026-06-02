@@ -128,24 +128,6 @@ function getCollection(rawAddr) {
   return null;
 }
 
-const [imageCache, setImageCache] = useState({});
-
-const getImageSrc = (collectionKey, tokenId) => {
-  const key = `${collectionKey}:${tokenId}`;
-
-  if (imageCache[key]) return imageCache[key];
-
-  const imageFile = resolveImage(mapping, collectionKey, tokenId);
-
-  const src = imageFile
-    ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-    : `${BACKEND_URL}/images/${collectionKey}/${tokenId}.png`;
-
-  setImageCache((prev) => ({ ...prev, [key]: src }));
-
-  return src;
-};
-
   /* ---------- DEBUG NFTs------------*/
 useEffect(() => {
   console.group("NFT SLOTS DEBUG (ALL)");
@@ -3092,13 +3074,19 @@ return (
         const mapped =
           mapping?.[collectionKey]?.[String(slot.tokenId)] || null;
 
-        const imageFile = resolveImage(mapping, collectionKey, slot.tokenId);
+const imageFile = resolveImage(
+  mapping,
+  collectionKey,
+  slot.tokenId
+);
 
-        const imageSrc = getImageSrc(collectionKey, imageFile);
+const imageSrc = imageFile
+  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  : "/placeholder.png";
 
         return (
           <div
-            key={`${slot.address}-${slot.tokenId}-${idx}`}
+            key={`${nftOption.nftAddress.toLowerCase()}-${nftOption.tokenId}`}
             style={{
               width: 64,
               minWidth: 64,
@@ -3286,14 +3274,16 @@ return (
         const mapped =
           mapping?.[collectionKey]?.[String(nftOption.tokenId)] || null;
 
-        const imageFile = resolveImage(
-          mapping,
-          collectionKey,
-          nftOption.tokenId
-        );
+const imageFile = resolveImage(
+  mapping,
+  collectionKey,
+  nftOption.tokenId
+);
 
-        const imageSrc = getImageSrc(collectionKey, imageFile);
-
+const imageSrc = imageFile
+  ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+  : "/placeholder.png";
+  
         const selected =
           nfts[i]?.tokenId === nftOption.tokenId &&
           nfts[i]?.address?.toLowerCase() ===
