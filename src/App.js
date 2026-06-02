@@ -205,6 +205,11 @@ useEffect(() => {
   imageMapRef.current = cache;
 }, [mapping]);
 
+/* ----------- NFT SORT ----------- */
+const backgroundPriority = Object.fromEntries(
+  RARE_BACKGROUNDS.map((bg, idx) => [bg, idx])
+);
+
   /* ---------------- GAMES STATE ---------------- */
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(false);
@@ -3122,7 +3127,31 @@ const imageSrc =
             maxWidth: "100%",
           }}
         >
-          {ownedNFTs.map((nftOption) => {
+          {[...ownedNFTs]
+  .sort((a, b) => {
+    const aPriority =
+      backgroundPriority[a?.background] ?? 999;
+
+    const bPriority =
+      backgroundPriority[b?.background] ?? 999;
+
+    // Rare backgrounds first
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    // Then alphabetically by name
+    const aName = a?.name || "";
+    const bName = b?.name || "";
+
+    if (aName !== bName) {
+      return aName.localeCompare(bName);
+    }
+
+    // Then token ID
+    return Number(a?.tokenId || 0) - Number(b?.tokenId || 0);
+  })
+  .map((nftOption) => {
             const collectionKey = getCollection(nftOption.nftAddress);
             if (!collectionKey) return null;
 
