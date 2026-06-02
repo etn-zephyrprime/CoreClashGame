@@ -3070,82 +3070,145 @@ return (
     </div>
   )}
 
-  {/* EXPANDED VIEW */}
-  {showNftGallery && (
-    <div style={{ padding: "0 16px 16px 16px" }}>
-      {nfts.map((slot, i) => (
-        <div key={`slot-${i}`} style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, marginBottom: 8 }}>
-            Select NFT
-          </div>
+{/* EXPANDED VIEW (stable, UI unchanged) */}
+{showNftGallery && (
+  <div style={{ padding: "0 16px 16px 16px" }}>
+    {nfts.map((slot, i) => (
+      <div
+        key={`slot-${i}`}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          marginTop: 16,
+          minWidth: 0,
+        }}
+      >
+        <label
+          style={{
+            fontSize: 12,
+            color: "#aaa",
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}
+        >
+          Select NFT
+        </label>
 
-          <div style={{ display: "flex", gap: 10, overflowX: "auto" }}>
-            {ownedNFTs.map((nftOption) => {
-              const collectionKey = getCollection(nftOption.nftAddress);
-              if (!collectionKey) return null;
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            overflowX: "auto",
+            overflowY: "hidden",
+            WebkitOverflowScrolling: "touch",
+            flexWrap: "nowrap",
+            paddingBottom: 4,
+            maxWidth: "100%",
+          }}
+        >
+          {ownedNFTs.map((nftOption) => {
+            const collectionKey = getCollection(nftOption.nftAddress);
+            if (!collectionKey) return null;
 
-              const imageFile = resolveImage(
-                mapping,
-                collectionKey,
-                nftOption.tokenId
-              );
+            const imageFile = resolveImage(
+              mapping,
+              collectionKey,
+              nftOption.tokenId
+            );
 
-              const imageSrc = imageFile
-                ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-                : "/placeholder.png";
+            const imageSrc = imageFile
+              ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+              : "/placeholder.png";
 
-              const selected =
-                nfts[i]?.tokenId === nftOption.tokenId &&
-                nfts[i]?.address?.toLowerCase() ===
-                  nftOption.nftAddress?.toLowerCase();
+            const selected =
+              nfts[i]?.tokenId === nftOption.tokenId &&
+              nfts[i]?.address?.toLowerCase() ===
+                nftOption.nftAddress?.toLowerCase();
 
-              return (
-                <div
-                  key={`${nftOption.nftAddress}-${nftOption.tokenId}`}
-                  onClick={() =>
-                    setNfts((prev) =>
-                      prev.map((s, idx) =>
-                        idx === i
-                          ? {
-                              ...s,
-                              tokenId: nftOption.tokenId,
-                              address: nftOption.nftAddress,
-                              metadata: {
-                                name: nftOption.name,
-                                background: nftOption.background,
-                              },
-                            }
-                          : s
-                      )
+            return (
+              <div
+                key={`${nftOption.nftAddress}-${nftOption.tokenId}`}
+                onClick={() => {
+                  setNfts((prev) =>
+                    prev.map((s, idx) =>
+                      idx === i
+                        ? {
+                            ...s,
+                            tokenId: nftOption.tokenId,
+                            address: nftOption.nftAddress,
+                            metadata: {
+                              name: nftOption.name,
+                              background: nftOption.background,
+                            },
+                          }
+                        : s
                     )
+                  );
+                }}
+                style={{
+                  flex: "0 0 auto",
+                  width: 90,
+                  minWidth: 90,
+                  cursor: "pointer",
+                  borderRadius: 8,
+                  border: selected
+                    ? "2px solid #3ea6ff"
+                    : "1px solid #333",
+                  background: "#111",
+                  padding: 6,
+                  textAlign: "center",
+                }}
+              >
+                <img
+                  src={imageSrc}
+                  loading="eager"
+                  decoding="async"
+                  onError={(e) =>
+                    (e.currentTarget.src = "/placeholder.png")
                   }
                   style={{
-                    width: 90,
-                    cursor: "pointer",
-                    border: selected
-                      ? "2px solid #3ea6ff"
-                      : "1px solid #333",
-                    borderRadius: 8,
-                    padding: 6,
+                    width: "100%",
+                    height: 70,
+                    objectFit: "cover",
+                    borderRadius: 6,
+                    marginBottom: 4,
+                  }}
+                />
+
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "bold",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
-                  <img
-                    src={imageSrc}
-                    style={{
-                      width: "100%",
-                      height: 70,
-                      objectFit: "cover",
-                      borderRadius: 6,
-                    }}
-                  />
+                  {nftOption.name
+                    ? `${nftOption.name} (#${nftOption.tokenId})`
+                    : `#${nftOption.tokenId}`}
                 </div>
-              );
-            })}
-          </div>
+
+                <div
+                  style={{
+                    fontSize: 10,
+                    opacity: 0.7,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {nftOption.background}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      ))}
-    </div>
-  )}
+      </div>
+    ))}
+  </div>
+)}
 </div>
 
 {/* ---------------- ACTION BUTTONS ---------------- */}
