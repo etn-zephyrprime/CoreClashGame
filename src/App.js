@@ -205,11 +205,6 @@ useEffect(() => {
   imageMapRef.current = cache;
 }, [mapping]);
 
-/* ----------- NFT SORT ----------- */
-const backgroundPriority = Object.fromEntries(
-  RARE_BACKGROUNDS.map((bg, idx) => [bg, idx])
-);
-
   /* ---------------- GAMES STATE ---------------- */
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(false);
