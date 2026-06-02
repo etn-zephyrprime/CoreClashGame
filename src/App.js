@@ -3053,9 +3053,9 @@ return (
           if (!collectionKey) return null;
 
 const imageSrc =
-  imageMapRef.current[`${collectionKey}:${nftOption.tokenId}`] ||
+  imageMapRef.current[`${collectionKey}:${slot.tokenId}`] ||
   "/placeholder.png";
-
+  
           return (
             <div
               key={`collapsed-${slot.address}-${slot.tokenId}`}
