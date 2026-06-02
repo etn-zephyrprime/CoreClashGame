@@ -3086,7 +3086,7 @@ const imageSrc = imageFile
 
         return (
           <div
-            key={`${nftOption.nftAddress.toLowerCase()}-${nftOption.tokenId}`}
+            key={`${slot.address.toLowerCase()}-${slot.tokenId}`}
             style={{
               width: 64,
               minWidth: 64,
