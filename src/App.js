@@ -164,8 +164,8 @@ useEffect(() => {
       // Only update if version changed (if backend provides it)
       if (!prev || prev.version !== data.version) {
         stableMappingRef.current = data;
-        setMapping(prev => {
-  if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
+        setMapping((prev) => {
+  if (prev === data) return prev;
   return data;
 });
       }
@@ -186,21 +186,20 @@ useEffect(() => {
 const imageMapRef = useRef({});
 
 useEffect(() => {
-  const map = {};
+  if (!mapping) return;
 
-  for (const collectionKey in mapping || {}) {
-    map[collectionKey] = {};
+  const cache = {};
 
-    for (const tokenId in mapping[collectionKey]) {
-      const imageFile = mapping[collectionKey][tokenId]?.image_file;
+  for (const collectionKey of Object.keys(mapping)) {
+    const tokens = mapping[collectionKey];
 
-      map[collectionKey][tokenId] = imageFile
-        ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-        : "/placeholder.png";
+    for (const tokenId of Object.keys(tokens)) {
+      cache[`${collectionKey}:${tokenId}`] =
+        `${BACKEND_URL}/images/${collectionKey}/${tokens[tokenId].image_file}`;
     }
   }
 
-  imageMapRef.current = map;
+  imageMapRef.current = cache;
 }, [mapping]);
 
   /* ---------------- GAMES STATE ---------------- */
@@ -399,18 +398,17 @@ if (data.length === 0) {
     console.error("Force cache error:", forceErr);
   }
 }
-      setOwnedNFTs(prev => {
-  const normalized = data.map(n => ({
-    ...n,
-    tokenId: String(n.tokenId),
-  }));
+setOwnedNFTs((prev) => {
+  if (!data?.length) return [];
 
-  // shallow compare to avoid useless re-renders
-  if (JSON.stringify(prev) === JSON.stringify(normalized)) {
-    return prev;
-  }
+  const same =
+    prev.length === data.length &&
+    prev.every((a, i) =>
+      a.tokenId === data[i].tokenId &&
+      a.nftAddress === data[i].nftAddress
+    );
 
-  return normalized;
+  return same ? prev : data;
 });
     } catch (err) {
       console.error("Owned fetch error:", err);
@@ -3055,7 +3053,7 @@ return (
           if (!collectionKey) return null;
 
 const imageSrc =
-  imageMapRef.current?.[collectionKey]?.[String(tokenId)] ||
+  imageMapRef.current[`${collectionKey}:${nftOption.tokenId}`] ||
   "/placeholder.png";
 
           return (
@@ -3089,7 +3087,7 @@ const imageSrc =
   <div style={{ padding: "0 16px 16px 16px" }}>
     {nfts.map((slot, i) => (
       <div
-        key={`slot-${i}`}
+        key={`slot-${slot.address?.toLowerCase() || "empty"}-${slot.tokenId || i}`}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -3126,9 +3124,9 @@ const imageSrc =
             if (!collectionKey) return null;
 
 const imageSrc =
-  imageMapRef.current?.[collectionKey]?.[String(tokenId)] ||
+  imageMapRef.current[`${collectionKey}:${nftOption.tokenId}`] ||
   "/placeholder.png";
-  
+
             const selected =
               nfts[i]?.tokenId === nftOption.tokenId &&
               nfts[i]?.address?.toLowerCase() ===
@@ -3136,7 +3134,7 @@ const imageSrc =
 
             return (
               <div
-                key={`${nftOption.nftAddress}-${nftOption.tokenId}`}
+                key={`${nftOption.nftAddress.toLowerCase()}-${String(nftOption.tokenId)}`}
                 onClick={() => {
                   setNfts((prev) =>
                     prev.map((s, idx) =>
@@ -3170,7 +3168,7 @@ const imageSrc =
               >
                 <img
                   src={imageSrc}
-                  loading="eager"
+                  loading="lazy"
                   decoding="async"
                   onError={(e) =>
                     (e.currentTarget.src = "/placeholder.png")
