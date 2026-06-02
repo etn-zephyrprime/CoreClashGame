@@ -164,7 +164,10 @@ useEffect(() => {
       // Only update if version changed (if backend provides it)
       if (!prev || prev.version !== data.version) {
         stableMappingRef.current = data;
-        setMapping(data);
+        setMapping(prev => {
+  if (JSON.stringify(prev) === JSON.stringify(data)) return prev;
+  return data;
+});
       }
     } catch (err) {
       console.error("mapping load failed:", err);
@@ -376,7 +379,19 @@ if (data.length === 0) {
     console.error("Force cache error:", forceErr);
   }
 }
-      setOwnedNFTs(data.map(n => ({ ...n, tokenId: n.tokenId.toString() })));
+      setOwnedNFTs(prev => {
+  const normalized = data.map(n => ({
+    ...n,
+    tokenId: String(n.tokenId),
+  }));
+
+  // shallow compare to avoid useless re-renders
+  if (JSON.stringify(prev) === JSON.stringify(normalized)) {
+    return prev;
+  }
+
+  return normalized;
+});
     } catch (err) {
       console.error("Owned fetch error:", err);
       setOwnedNFTs([]);
@@ -3291,7 +3306,7 @@ const imageSrc = imageFile
 
         return (
           <div
-            key={`${nftOption.nftAddress}-${nftOption.tokenId}`}
+            key={`${nftOption.nftAddress.toLowerCase()}-${nftOption.tokenId}`}
             onClick={() => {
               setNfts((prev) =>
                 prev.map((s, idx) =>
