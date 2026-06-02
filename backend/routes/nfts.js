@@ -290,4 +290,22 @@ for (const tokenId of walletCache.EVG || []) {
 res.json(result);
 });
 
+router.get("/mapping.json", (req, res) => {
+  try {
+    if (!fs.existsSync(FRONTEND_MAPPING_FILE)) {
+      return res.status(404).json({
+        error: "mapping.json not found",
+      });
+    }
+
+    res.sendFile(FRONTEND_MAPPING_FILE);
+  } catch (err) {
+    console.error("Failed serving mapping.json:", err);
+
+    res.status(500).json({
+      error: "Failed to serve mapping.json",
+    });
+  }
+});
+
 export default router;
