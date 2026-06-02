@@ -156,8 +156,8 @@ const stableMappingRef = useRef(null);
 useEffect(() => {
   async function loadMapping() {
     try {
-      const res = await fetch(
-  `${BACKEND_URL}/api/nfts/mapping.json`
+const res = await fetch(
+  `${BACKEND_URL}/nfts/mapping.json`
 );
 
       const data = await res.json();
