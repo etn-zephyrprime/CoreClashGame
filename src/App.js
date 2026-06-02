@@ -183,6 +183,26 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, []);
 
+const imageMapRef = useRef({});
+
+useEffect(() => {
+  const map = {};
+
+  for (const collectionKey in mapping || {}) {
+    map[collectionKey] = {};
+
+    for (const tokenId in mapping[collectionKey]) {
+      const imageFile = mapping[collectionKey][tokenId]?.image_file;
+
+      map[collectionKey][tokenId] = imageFile
+        ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
+        : "/placeholder.png";
+    }
+  }
+
+  imageMapRef.current = map;
+}, [mapping]);
+
   /* ---------------- GAMES STATE ---------------- */
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(false);
@@ -3034,15 +3054,9 @@ return (
           const collectionKey = getCollection(slot.address);
           if (!collectionKey) return null;
 
-          const imageFile = resolveImage(
-            mapping,
-            collectionKey,
-            slot.tokenId
-          );
-
-          const imageSrc = imageFile
-            ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-            : "/placeholder.png";
+const imageSrc =
+  imageMapRef.current?.[collectionKey]?.[String(tokenId)] ||
+  "/placeholder.png";
 
           return (
             <div
@@ -3111,16 +3125,10 @@ return (
             const collectionKey = getCollection(nftOption.nftAddress);
             if (!collectionKey) return null;
 
-            const imageFile = resolveImage(
-              mapping,
-              collectionKey,
-              nftOption.tokenId
-            );
-
-            const imageSrc = imageFile
-              ? `${BACKEND_URL}/images/${collectionKey}/${imageFile}`
-              : "/placeholder.png";
-
+const imageSrc =
+  imageMapRef.current?.[collectionKey]?.[String(tokenId)] ||
+  "/placeholder.png";
+  
             const selected =
               nfts[i]?.tokenId === nftOption.tokenId &&
               nfts[i]?.address?.toLowerCase() ===
