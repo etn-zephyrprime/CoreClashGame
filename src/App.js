@@ -1437,9 +1437,10 @@ const gameCardProps = {
 /* ---------------- BACKGROUND PRIORITY ---------------- */
 const backgroundPriority = {
   Gold: 0,
-  "Verdant Green": 1,
-  "Aether Purple": 2,
-  Silver: 3,
+  "Rose Gold": 1,
+  "Verdant Green": 2,
+  "Aether Purple": 3,
+  Silver: 4,
 };
 
 /* ---------------- FILTERED + SORTED GAMES ---------------- */
