@@ -7,15 +7,11 @@ import {
     DRIP_FUNDER_ADDRESS
 } from "../config.js";
 
+import dripABI from "../abis/dripABI.json" with { type: "json" };
+
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
 
-const ABI = [
-    "function drip()",
-    "function nextDripIn() view returns (uint256)",
-    "function totalDripped() view returns (uint256)",
-    "function totalToDrip() view returns (uint256)",
-    "function startTimestamp() view returns (uint256)"
-];
+const ABI = dripABI;
 
 let isRunning = false;
 let contractWithSigner = null;
@@ -23,60 +19,61 @@ let contractWithSigner = null;
 export async function startDripBot() {
     if (isRunning) return;
 
-    if (!BACKEND_PRIVATE_KEY || !DRIP_FUNDER_ADDRESS || DRIP_FUNDER_ADDRESS.startsWith("0xYour")) {
-        console.error("❌ Missing BACKEND_PRIVATE_KEY or DRIP_FUNDER_ADDRESS");
-        return;
-    }
-
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
+    
     const contract = new ethers.Contract(DRIP_FUNDER_ADDRESS, ABI, provider);
-    contractWithSigner = new ethers.Contract(DRIP_FUNDER_ADDRESS, ABI, wallet);
+    const contractWithSigner = new ethers.Contract(DRIP_FUNDER_ADDRESS, ABI, wallet);
 
-    console.log(`🚀 Core Drip Bot Started (Polling Mode Only)`);
-    console.log(`📍 Contract: ${DRIP_FUNDER_ADDRESS}`);
-    console.log(`🔄 Checking every 5 minutes...`);
+    console.log("\n=== Drip Bot Initialization ===");
+    console.log("Bot Wallet Address :", wallet.address);
+    console.log("Drip Contract      :", DRIP_FUNDER_ADDRESS);
+
+    // Tightened Owner Check
+    try {
+        const owner = await contract.owner();
+        const normalizedOwner = owner.toLowerCase();
+        const normalizedWallet = wallet.address.toLowerCase();
+
+        console.log("Contract Owner     :", owner);
+        console.log("Normalized Owner   :", normalizedOwner);
+        console.log("Normalized Wallet  :", normalizedWallet);
+        console.log("Owner Match?       :", normalizedOwner === normalizedWallet);
+
+        if (normalizedOwner !== normalizedWallet) {
+            console.error("❌ CRITICAL: Backend wallet is NOT the contract owner!");
+            console.error("   Expected:", normalizedWallet);
+            console.error("   Got     :", normalizedOwner);
+        } else {
+            console.log("✅ Owner verification PASSED");
+        }
+    } catch (e) {
+        console.error("❌ Failed to read contract owner:", e.message);
+    }
 
     isRunning = true;
 
     setInterval(async () => {
         try {
             const nextDripIn = await contract.nextDripIn();
-            const totalDripped = await contract.totalDripped();
-            const totalToDrip = await contract.totalToDrip();
-
-            const now = new Date();
 
             if (Number(nextDripIn) === 0) {
-                console.log(`[${now.toLocaleString()}] ✅ Time to drip! Executing...`);
+                console.log(`\n[${new Date().toLocaleString()}] ✅ Time to drip! Executing...`);
 
-                const tx = await contractWithSigner.drip();
-                console.log(`📤 Transaction sent: ${tx.hash}`);
+                const tx = await contractWithSigner.drip({
+                    gasLimit: 400000   // Higher buffer
+                });
 
+                console.log(`📤 Tx sent: ${tx.hash}`);
                 const receipt = await tx.wait();
-                console.log(`✅ Drip successful! Block: ${receipt.blockNumber}`);
-
-                // === Telegram Notification ===
-                const amount = 500;
-                const remainingDrips = Number((totalToDrip - totalDripped) / BigInt(500 * 10 ** 18));
-
-                await sendCoreDripNotification({
-                    amount,
-                    txHash: tx.hash,
-                    remainingDrips,
-                    totalDripped: Number(totalDripped)
-                }).catch(err => console.error("Telegram notification failed:", err.message));
-
+                console.log(`✅ Drip SUCCESS! Block: ${receipt.blockNumber}`);
             } else {
                 const hoursLeft = (Number(nextDripIn) / 3600).toFixed(1);
-                console.log(`[${now.toLocaleString()}] ⏳ Next drip in ~${hoursLeft} hours`);
+                console.log(`[${new Date().toLocaleString()}] ⏳ Next drip in ~${hoursLeft} hours`);
             }
-
-            const remaining = Number((totalToDrip - totalDripped) / BigInt(500 * 10 ** 18));
-            console.log(`📊 Remaining drips: ${remaining}\n`);
-
         } catch (error) {
-            console.error(`❌ Drip Bot Error:`, error.message);
+            console.error("❌ Drip Bot Error:", error.message);
+            if (error.data) console.error("   Raw Data:", error.data);
         }
     }, CHECK_INTERVAL_MS);
 }
