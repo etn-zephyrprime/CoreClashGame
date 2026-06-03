@@ -7,7 +7,7 @@ import {
     DRIP_FUNDER_ADDRESS
 } from "../config.js";
 
-import dripABI from "../abis/dripABI.json" with { type: "json" };
+import dripABI from "../../src/abis/dripABI.json" with { type: "json" };
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
 
