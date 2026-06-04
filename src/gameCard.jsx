@@ -146,8 +146,8 @@ const backupExists = (() => {
 
 // Add this near your other handlers (after handleDownloadReveal)
 const handleRetryBackendReveal = async (gameId) => {
-  if (!gameId || !provider) {
-    alert("Wallet not connected");
+  if (!gameId || !signer) {
+    alert("Wallet not connected or signer unavailable");
     return;
   }
 
@@ -171,7 +171,6 @@ const handleRetryBackendReveal = async (gameId) => {
         throw new Error("Invalid reveal file");
       }
 
-      const signer = await provider.getSigner();
       const liveAccount = await signer.getAddress();
 
       let success = false;
@@ -212,11 +211,10 @@ const handleRetryBackendReveal = async (gameId) => {
       }
 
       if (success) {
-        alert("✅ Backend sync successful! Refreshing game data...");
-        // You might want to call a refresh prop if available
-        window.location.reload(); // or call loadGames() if passed down
+        alert("✅ Backend sync successful! Refreshing...");
+        window.location.reload(); // Temporary — better to pass a refresh prop later
       } else {
-        alert("❌ Backend retry failed after 3 attempts. Please try again.");
+        alert("❌ Backend retry failed after 3 attempts.");
       }
     } catch (err) {
       console.error("Retry failed:", err);
