@@ -144,7 +144,7 @@ const backupExists = (() => {
   }
 })();
 
-// Add this near your other handlers
+// Add this near your other handlers (after handleDownloadReveal)
 const handleRetryBackendReveal = async (gameId) => {
   if (!gameId) {
     alert("Invalid game ID");
@@ -152,19 +152,13 @@ const handleRetryBackendReveal = async (gameId) => {
   }
 
   try {
-    // Try to get a fresh signer
-    let currentSigner = signer;
-
-    if (!currentSigner) {
-      if (!window.ethereum) {
-        throw new Error("Wallet not connected");
-      }
-      
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      currentSigner = await provider.getSigner();
+    // Use the signer passed from parent (most reliable for WalletConnect)
+    if (!signer) {
+      alert("Signer not available. Please make sure your wallet is connected.");
+      return;
     }
 
-    const liveAccount = await currentSigner.getAddress();
+    const liveAccount = await signer.getAddress();
 
     // Trigger file input
     const fileInput = document.createElement("input");
@@ -202,7 +196,7 @@ const handleRetryBackendReveal = async (gameId) => {
                 salt,
                 nftContracts,
                 tokenIds,
-                backgrounds,
+                backgrounds: backgrounds || [], // safety
               }),
             });
 
@@ -225,9 +219,9 @@ const handleRetryBackendReveal = async (gameId) => {
 
         if (success) {
           alert("✅ Backend sync successful!");
-          window.location.reload(); // TODO: Replace with prop refresh later
+          window.location.reload(); 
         } else {
-          alert("❌ Backend retry failed after 3 attempts. Please try again.");
+          alert("❌ Backend retry failed after 3 attempts.");
         }
       } catch (err) {
         console.error("Retry failed:", err);
@@ -237,8 +231,8 @@ const handleRetryBackendReveal = async (gameId) => {
 
     fileInput.click();
   } catch (err) {
-    console.error("Signer error:", err);
-    alert(`Could not access wallet: ${err.message}`);
+    console.error("Retry setup failed:", err);
+    alert(`Could not start retry: ${err.message}`);
   }
 };
 
