@@ -1175,7 +1175,7 @@ export async function sendCoreDripNotification({
   remainingDrips,
   totalDripped
 }) {
-  if (!isTelegramConfigured()) {
+  if (!isZephyrosTelegramConfigured()) {
     console.warn("Telegram not configured - skipping drip notification");
     return null;
   }
@@ -1189,9 +1189,28 @@ export async function sendCoreDripNotification({
     `📈 Total dripped so far: <b>${(totalDripped / 1e18).toLocaleString()} CORE</b>\n\n` +
     `🔗 <a href="${txUrl}">View Transaction on Explorer</a>`;
 
-  return sendTelegramGroupMessage(text, {
-    includeFooter: true
-  });
+const payload = {
+    chat_id: TELEGRAM_GROUP_CHAT_ID,
+    text: text + buildFooter(),
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+  };
+
+  // Send to Zephyros General Channel
+  if (ZEPHYROS_GENERAL_MESSAGE_THREAD_ID != null) {
+    payload.message_thread_id = ZEPHYROS_GENERAL_MESSAGE_THREAD_ID;
+  }
+
+try {
+    return await telegramRequest(
+      ZEPHYROS_TELEGRAM_API_BASE,
+      "sendMessage",
+      payload
+    );
+  } catch (err) {
+    console.error("sendCoreDripNotification failed:", err.message);
+    throw err;
+  }
 }
 
 export {
