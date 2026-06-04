@@ -144,6 +144,89 @@ const backupExists = (() => {
   }
 })();
 
+// Add this near your other handlers (after handleDownloadReveal)
+const handleRetryBackendReveal = async (gameId) => {
+  if (!gameId || !provider) {
+    alert("Wallet not connected");
+    return;
+  }
+
+  // Trigger hidden file input
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".json";
+  fileInput.style.display = "none";
+
+  fileInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const { salt, nftContracts, tokenIds, backgrounds } = data;
+
+      if (!salt || !Array.isArray(nftContracts) || !Array.isArray(tokenIds)) {
+        throw new Error("Invalid reveal file");
+      }
+
+      const signer = await provider.getSigner();
+      const liveAccount = await signer.getAddress();
+
+      let success = false;
+      const maxAttempts = 3;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-wallet": liveAccount.toLowerCase(),
+            },
+            body: JSON.stringify({
+              player: liveAccount.toLowerCase(),
+              salt,
+              nftContracts,
+              tokenIds,
+              backgrounds,
+            }),
+          });
+
+          const backendData = await res.json().catch(() => ({}));
+
+          if (res.ok) {
+            console.log(`✅ Backend retry succeeded for game ${gameId}`);
+            success = true;
+            break;
+          } else {
+            throw new Error(backendData.error || `HTTP ${res.status}`);
+          }
+        } catch (err) {
+          console.warn(`Retry attempt ${attempt}/${maxAttempts} failed:`, err.message);
+          if (attempt < maxAttempts) {
+            await new Promise(r => setTimeout(r, 1200 * attempt));
+          }
+        }
+      }
+
+      if (success) {
+        alert("✅ Backend sync successful! Refreshing game data...");
+        // You might want to call a refresh prop if available
+        window.location.reload(); // or call loadGames() if passed down
+      } else {
+        alert("❌ Backend retry failed after 3 attempts. Please try again.");
+      }
+    } catch (err) {
+      console.error("Retry failed:", err);
+      alert(`Retry failed: ${err.message}`);
+    }
+  };
+
+  fileInput.click();
+};
+
 // ---------- Game Status Logic ----------
 function getGameStatus(g) {
   const isTrue = (v) => v === true || v === "true";
@@ -875,6 +958,65 @@ style={{
           />
         </div>
       )}
+
+{/* Backend Sync Retry - When on-chain revealed but backend missing */}
+{hasPlayer2 && !isSettled && !isCancelled && (
+  <>
+    {/* Player 1 Retry */}
+    {isPlayer1 && p1Revealed && !g.player1Reveal && (
+      <div style={{
+        marginTop: 12,
+        padding: 12,
+        background: "rgba(255, 152, 0, 0.15)",
+        border: "1px solid #ff9800",
+        borderRadius: 12,
+        textAlign: "center"
+      }}>
+        <div style={{ color: "#ffb74d", fontWeight: "bold", marginBottom: 8 }}>
+          ⚠️ On-chain reveal detected but backend sync missing
+        </div>
+        <button
+          onClick={() => handleRetryBackendReveal(g.id)}
+          style={{
+            ...buttonBaseStyle,
+            background: "linear-gradient(135deg, #ff9800, #f57c00)",
+            color: "#000",
+            fontWeight: "bold"
+          }}
+        >
+          Retry Backend Sync (Upload Reveal File)
+        </button>
+      </div>
+    )}
+
+    {/* Player 2 Retry */}
+    {isPlayer2 && p2Revealed && !g.player2Reveal && (
+      <div style={{
+        marginTop: 12,
+        padding: 12,
+        background: "rgba(255, 152, 0, 0.15)",
+        border: "1px solid #ff9800",
+        borderRadius: 12,
+        textAlign: "center"
+      }}>
+        <div style={{ color: "#ffb74d", fontWeight: "bold", marginBottom: 8 }}>
+          ⚠️ On-chain reveal detected but backend sync missing
+        </div>
+        <button
+          onClick={() => handleRetryBackendReveal(g.id)}
+          style={{
+            ...buttonBaseStyle,
+            background: "linear-gradient(135deg, #ff9800, #f57c00)",
+            color: "#000",
+            fontWeight: "bold"
+          }}
+        >
+          Retry Backend Sync (Upload Reveal File)
+        </button>
+      </div>
+    )}
+  </>
+)}
 
 {/* Settle after 5 days */}
 {revealDeadlineTs !== null && !bothRevealed && !isSettled && !isCancelled && (
