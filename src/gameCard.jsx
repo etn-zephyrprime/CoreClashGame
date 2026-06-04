@@ -146,94 +146,90 @@ const backupExists = (() => {
 
 // Add this near your other handlers (after handleDownloadReveal)
 const handleRetryBackendReveal = async (gameId) => {
+  console.log("🔄 Retry button clicked - account:", account, "gameId:", gameId);
+
   if (!gameId) {
     alert("Invalid game ID");
     return;
   }
 
-  try {
-    // Use the signer passed from parent (most reliable for WalletConnect)
-    if (!signer) {
-      alert("Signer not available. Please make sure your wallet is connected.");
-      return;
-    }
+  if (!account) {
+    alert("Wallet account not found. Please reconnect your wallet.");
+    return;
+  }
 
-    const liveAccount = await signer.getAddress();
+  const liveAccount = account.toLowerCase();
 
-    // Trigger file input
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = ".json";
-    fileInput.style.display = "none";
+  // Trigger file input
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".json";
+  fileInput.style.display = "none";
 
-    fileInput.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  fileInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
 
-        const { salt, nftContracts, tokenIds, backgrounds } = data;
+      const { salt, nftContracts, tokenIds, backgrounds = [] } = data;
 
-        if (!salt || !Array.isArray(nftContracts) || !Array.isArray(tokenIds)) {
-          throw new Error("Invalid reveal file");
-        }
+      if (!salt || !Array.isArray(nftContracts) || !Array.isArray(tokenIds)) {
+        throw new Error("Invalid reveal file");
+      }
 
-        let success = false;
-        const maxAttempts = 3;
+      let success = false;
+      const maxAttempts = 3;
 
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-wallet": liveAccount.toLowerCase(),
-              },
-              body: JSON.stringify({
-                player: liveAccount.toLowerCase(),
-                salt,
-                nftContracts,
-                tokenIds,
-                backgrounds: backgrounds || [], // safety
-              }),
-            });
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-wallet": liveAccount,
+            },
+            body: JSON.stringify({
+              player: liveAccount,
+              salt,
+              nftContracts,
+              tokenIds,
+              backgrounds,
+            }),
+          });
 
-            const backendData = await res.json().catch(() => ({}));
+          const backendData = await res.json().catch(() => ({}));
 
-            if (res.ok) {
-              console.log(`✅ Backend retry succeeded for game ${gameId}`);
-              success = true;
-              break;
-            } else {
-              throw new Error(backendData.error || `HTTP ${res.status}`);
-            }
-          } catch (err) {
-            console.warn(`Retry attempt ${attempt}/${maxAttempts} failed:`, err.message);
-            if (attempt < maxAttempts) {
-              await new Promise(r => setTimeout(r, 1500 * attempt));
-            }
+          if (res.ok) {
+            console.log(`✅ Backend retry succeeded for game ${gameId}`);
+            success = true;
+            break;
+          } else {
+            throw new Error(backendData.error || `HTTP ${res.status}`);
+          }
+        } catch (err) {
+          console.warn(`Attempt ${attempt}/${maxAttempts} failed:`, err.message);
+          if (attempt < maxAttempts) {
+            await new Promise(r => setTimeout(r, 1500 * attempt));
           }
         }
-
-        if (success) {
-          alert("✅ Backend sync successful!");
-          window.location.reload(); 
-        } else {
-          alert("❌ Backend retry failed after 3 attempts.");
-        }
-      } catch (err) {
-        console.error("Retry failed:", err);
-        alert(`Retry failed: ${err.message}`);
       }
-    };
 
-    fileInput.click();
-  } catch (err) {
-    console.error("Retry setup failed:", err);
-    alert(`Could not start retry: ${err.message}`);
-  }
+      if (success) {
+        alert("✅ Backend sync successful! Refreshing page...");
+        window.location.reload();
+      } else {
+        alert("❌ Backend retry failed after 3 attempts. Please try again.");
+      }
+    } catch (err) {
+      console.error("Retry failed:", err);
+      alert(`Retry failed: ${err.message}`);
+    }
+  };
+
+  fileInput.click();
 };
 
 // ---------- Game Status Logic ----------
