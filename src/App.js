@@ -1162,20 +1162,14 @@ const handleRevealFile = useCallback(
         return;
       }
 
-      if (!provider) {
-        throw new Error("Provider not ready");
-      }
+      if (!provider) throw new Error("Provider not ready");
 
       await ensureCorrectNetwork();
 
       const signer = await provider.getSigner();
       const liveAccount = await signer.getAddress();
 
-      const contract = new ethers.Contract(
-        GAME_ADDRESS,
-        GameABI,
-        signer
-      );
+      const contract = new ethers.Contract(GAME_ADDRESS, GameABI, signer);
 
       // 1️⃣ On-chain reveal
       const tx = await contract.reveal(
@@ -1187,61 +1181,68 @@ const handleRevealFile = useCallback(
       );
 
       await tx.wait();
-      console.log("On-chain reveal succeeded for game", gameId);
+      console.log("✅ On-chain reveal succeeded for game", gameId);
 
-      // 2️⃣ Backend reveal
-      let backendData;
+      // 2️⃣ Backend reveal with retries
+      let backendSuccess = false;
+      const maxAttempts = 3;
 
-      try {
-        const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-wallet": liveAccount.toLowerCase(),
-          },
-          body: JSON.stringify({
-            player: liveAccount.toLowerCase(),
-            salt,
-            nftContracts,
-            tokenIds,
-            backgrounds,
-          }),
-        });
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-wallet": liveAccount.toLowerCase(),
+            },
+            body: JSON.stringify({
+              player: liveAccount.toLowerCase(),
+              salt,
+              nftContracts,
+              tokenIds,
+              backgrounds,
+            }),
+          });
 
-let backendData = null;
+          let backendData;
+          try {
+            backendData = await res.json();
+          } catch {
+            backendData = {};
+          }
 
-try {
-  backendData = await res.json();
-} catch {
-  backendData = {};
-}
+          if (res.ok) {
+            console.log(`✅ Backend reveal succeeded for game ${gameId} (attempt ${attempt})`);
+            backendSuccess = true;
+            break;
+          } else {
+            throw new Error(backendData.error || `Backend failed with status ${res.status}`);
+          }
+        } catch (err) {
+          console.warn(`Backend attempt ${attempt}/${maxAttempts} failed:`, err.message);
 
-        if (!res.ok) {
-          throw new Error(
-            backendData.error || "Backend reveal failed"
-          );
+          if (attempt === maxAttempts) {
+            console.error("❌ Backend reveal failed after all retries");
+            alert(
+              "Reveal succeeded on-chain, but backend sync failed after multiple attempts.\n\n" +
+              "The game may appear incomplete until you refresh or retry later."
+            );
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 800 * attempt));
+          }
         }
-
-        console.log("Backend reveal succeeded for game", gameId);
-      } catch (backendErr) {
-        console.warn(
-          "Backend reveal failed, but on-chain succeeded:",
-          backendErr
-        );
-
-        alert(
-          "Reveal succeeded on-chain but failed to update backend. Please retry posting reveal."
-        );
-
-        return;
       }
 
-      // 3️⃣ Trigger compute + refresh
+      // 3️⃣ Continue regardless of backend result (on-chain is source of truth)
       await triggerBackendComputeIfNeeded(gameId);
       await loadGames();
       await loadXpProfile();
 
-      alert("Reveal successful!");
+      if (backendSuccess) {
+        alert("Reveal successful!");
+      } else {
+        alert("On-chain reveal completed. Some backend features may be delayed.");
+      }
     } catch (err) {
       console.error("Reveal failed:", err);
       alert(`Reveal failed: ${err.message}`);
@@ -1256,6 +1257,90 @@ try {
     loadGames,
     loadXpProfile,
   ]
+);
+
+/* ---------------- Re-sync Reveal Data from Backend ---------------- */
+// Retry backend reveal only (no on-chain call)
+const handleRetryBackendReveal = useCallback(
+  async (gameId) => {
+    if (!gameId) return;
+
+    // Optional: Ask user to select the reveal file again
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".json";
+
+    fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        const { salt, nftContracts, tokenIds, backgrounds } = data;
+
+        if (!salt || !nftContracts || !tokenIds || !backgrounds) {
+          throw new Error("Invalid reveal file");
+        }
+
+        const signer = await provider.getSigner();
+        const liveAccount = await signer.getAddress();
+
+        let success = false;
+        const maxAttempts = 3;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-wallet": liveAccount.toLowerCase(),
+              },
+              body: JSON.stringify({
+                player: liveAccount.toLowerCase(),
+                salt,
+                nftContracts,
+                tokenIds,
+                backgrounds,
+              }),
+            });
+
+            const backendData = await res.json().catch(() => ({}));
+
+            if (res.ok) {
+              console.log(`✅ Backend retry succeeded for game ${gameId}`);
+              success = true;
+              break;
+            } else {
+              throw new Error(backendData.error || "Backend rejected");
+            }
+          } catch (err) {
+            console.warn(`Retry attempt ${attempt} failed:`, err);
+            if (attempt < maxAttempts) {
+              await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+          }
+        }
+
+        if (success) {
+          await triggerBackendComputeIfNeeded(gameId);
+          await loadGames();
+          await loadXpProfile();
+          alert("Backend sync successful! Game should now show full reveal.");
+        } else {
+          alert("Backend retry failed. Please try again or contact support.");
+        }
+      } catch (err) {
+        console.error("Retry failed:", err);
+        alert(`Retry failed: ${err.message}`);
+      }
+    };
+
+    fileInput.click();
+  },
+  [provider, BACKEND_URL, triggerBackendComputeIfNeeded, loadGames, loadXpProfile]
 );
 
 /* ------ MANUAL SETTLE GAME -------- */

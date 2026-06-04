@@ -463,95 +463,69 @@ router.post("/:id/reveal", authWallet, async (req, res) => {
       backgrounds.push(bgTrait?.value || "Unknown");
     }
 
-    // ---------------- BUILD REVEAL ----------------
+// ---------------- BUILD REVEAL ----------------
+const revealData = {
+  salt,
+  nftContracts: [...nftContracts],
+  tokenIds: [...tokenIds],
+  tokenURIs,
+  backgrounds,
+};
 
-    const revealData = {
-      salt,
-      nftContracts: [...nftContracts],
-      tokenIds: [...tokenIds],
-      tokenURIs,
-      backgrounds,
+// ---------------- SAVE UNDER LOCK ----------------
+let gamesSnapshot = null;
+let savedReveal = null;
+let bothRevealed = false;
+let revealSavedNow = false;
+let earlyResponse = null;
+
+await withLock(async () => {
+  const games = readGames();
+  const gameIndex = games.findIndex(g => g.id === gameId);
+
+  if (gameIndex === -1) {
+    earlyResponse = { status: 404, body: { error: "Game not found" } };
+    return;
+  }
+
+  const game = games[gameIndex];
+  const walletLc = req.wallet.toLowerCase();
+  const freshP1 = game.player1?.toLowerCase();
+  const freshP2 = game.player2?.toLowerCase();
+
+  let freshSlot = null;
+  if (walletLc === freshP1) freshSlot = "player1";
+  else if (walletLc === freshP2) freshSlot = "player2";
+
+  if (!freshSlot) {
+    earlyResponse = { status: 403, body: { error: "Not a game participant" } };
+    return;
+  }
+
+  // Prevent duplicate
+  if (game[`${freshSlot}Reveal`]) {
+    console.log(`[Reveal] Game ${gameId}: already has ${freshSlot}Reveal`);
+    earlyResponse = {
+      status: 200,
+      body: { message: "Already synced", savedReveal: game[`${freshSlot}Reveal`] }
     };
+    return;
+  }
 
-    // ---------------- SAVE UNDER LOCK ----------------
+  // === SAVE ===
+  game[`${freshSlot}Reveal`] = revealData;
+  game.backendPlayer1Revealed = !!game.player1Reveal;
+  game.backendPlayer2Revealed = !!game.player2Reveal;
 
-    let gamesSnapshot = null;
-    let savedReveal = null;
-    let bothRevealed = false;
-    let revealSavedNow = false;
-    let earlyResponse = null;
+  writeGames(games);   // ← This should now be reliable
 
-    await withLock(async () => {
-      const games = readGames();
+  gamesSnapshot = structuredClone(games);
+  savedReveal = revealData;
+  bothRevealed = !!(game.player1Reveal && game.player2Reveal);
+  revealSavedNow = true;
 
-      const game = games.find((g) => g.id === gameId);
-
-      if (!game) {
-        earlyResponse = {
-          status: 404,
-          body: { error: "Game not found" },
-        };
-        return;
-      }
-
-      const freshP1 = game.player1?.toLowerCase();
-      const freshP2 = game.player2?.toLowerCase();
-
-      let freshSlot;
-
-      if (walletLc === freshP1) freshSlot = "player1";
-      else if (walletLc === freshP2) freshSlot = "player2";
-      else {
-        earlyResponse = {
-          status: 403,
-          body: { error: "Not a game participant" },
-        };
-        return;
-      }
-
-      // Prevent duplicate backend reveals
-
-      if (game[`${freshSlot}Reveal`]) {
-        console.log(
-          `Game ${gameId}: backend already has reveal for ${freshSlot}`
-        );
-
-        earlyResponse = {
-          status: 200,
-          body: {
-            message: "Reveal already synced",
-            savedReveal: game[`${freshSlot}Reveal`],
-          },
-        };
-
-        return;
-      }
-
-      // Save reveal
-
-      game[`${freshSlot}Reveal`] = revealData;
-
-      game.backendPlayer1Revealed = !!game.player1Reveal;
-      game.backendPlayer2Revealed = !!game.player2Reveal;
-
-      writeGames(games);
-
-      // Snapshot after successful save
-
-      gamesSnapshot = structuredClone(games);
-
-      savedReveal = revealData;
-
-      bothRevealed = !!(
-        game.player1Reveal && game.player2Reveal
-      );
-
-      revealSavedNow = true;
-
-      console.log(
-        `Reveal saved for game ${gameId} (${freshSlot})`
-      );
-    });
+  console.log(`✅ Reveal saved for game ${gameId} (${freshSlot})`);
+});
 
     // ---------------- EARLY RESPONSE ----------------
 
