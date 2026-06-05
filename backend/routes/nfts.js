@@ -312,9 +312,9 @@ router.get("/staked/:wallet", async (req, res) => {
   try {
     const wallet = req.params.wallet.toLowerCase();
 
-    const state = await loadStakeHistorySomehow(); // see note below
+    const data = await loadStakes();
 
-    res.json(state.userStakes?.[wallet] || []);
+    res.json(data[wallet] || []);
   } catch (err) {
     console.error(err);
     res.json([]);
