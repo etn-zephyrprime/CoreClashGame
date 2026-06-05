@@ -308,4 +308,17 @@ router.get("/mapping.json", (req, res) => {
   }
 });
 
+router.get("/staked/:wallet", async (req, res) => {
+  try {
+    const wallet = req.params.wallet.toLowerCase();
+
+    const state = await loadStakeHistorySomehow(); // see note below
+
+    res.json(state.userStakes?.[wallet] || []);
+  } catch (err) {
+    console.error(err);
+    res.json([]);
+  }
+});
+
 export default router;
