@@ -82,7 +82,7 @@ export default function EcosystemBlock({
   desktopHeight: 78,
   imageScale: 0.94,
   imageTranslateY: 0,
-  url: "https://panth.art/collections/0x8cFBB04c54d35e2e8471Ad9040D40D73C08136f0",
+  url: "https://app.electroswap.io/nfts/collection/0x8cFBB04c54d35e2e8471Ad9040D40D73C08136f0",
 },
 {
   type: "banner",
@@ -106,7 +106,7 @@ export default function EcosystemBlock({
   desktopHeight: 78,
   imageScale: 1,
   imageTranslateY: 0,
-  url: "https://panth.art/collections/0x5C81a5609EaeEF7962F1D089D6343F9790387901",
+  url: "https://app.electroswap.io/nfts/collection/0x5C81a5609EaeEF7962F1D089D6343F9790387901",
 },
   ];
 
