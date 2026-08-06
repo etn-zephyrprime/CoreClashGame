@@ -102,24 +102,30 @@ let imageFile =
 }
 
 // Helper: fetch owned tokenIds (no metadata here yet)
+//
+// NOTE: this handler used to reference shouldScanVKIN/updatedWalletCache/
+// walletCache/vkinIds etc. without ever declaring them (they only existed
+// in the sibling /owned/:wallet handler below), so every call threw a
+// ReferenceError and 500'd. Rewritten to mirror the working logic in
+// /owned/:wallet instead of duplicating a second, broken copy of it.
 router.post("/force-cache/:wallet", async (req, res) => {
   const wallet = req.params.wallet.toLowerCase();
   console.log(`Force cache requested for ${wallet}`);
 
   try {
     const cache = readOwnerCache();
+    const existing = cache[wallet] || {};
 
-const existing = cache[wallet] || {};
-const complete =
-  Array.isArray(existing.VKIN) &&
-  Array.isArray(existing.VQLE) &&
-  Array.isArray(existing.SCIONS) &&
-  Array.isArray(existing.EVG);
+    const complete =
+      Array.isArray(existing.VKIN) &&
+      Array.isArray(existing.VQLE) &&
+      Array.isArray(existing.SCIONS) &&
+      Array.isArray(existing.EVG);
 
-if (complete) {
-  console.log("Complete cache already exists — skipping scan");
-  return res.json({ success: true, alreadyCached: true });
-}
+    if (complete) {
+      console.log("Complete cache already exists — skipping scan");
+      return res.json({ success: true, alreadyCached: true });
+    }
 
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const vkin = new ethers.Contract(VKIN_CONTRACT_ADDRESS, VKIN_ABI, provider);
@@ -127,46 +133,36 @@ if (complete) {
     const scions = new ethers.Contract(SCIONS_CONTRACT_ADDRESS, SCIONS_ABI, provider);
     const evg = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVG_ABI, provider);
 
+    const updatedWalletCache = { ...existing };
 
-if (shouldScanVKIN) {
-  console.log("Scanning VKIN...");
-  updatedWalletCache.VKIN = await retryRpc(() =>
-    fetchOwnedTokenIds(vkin, wallet, "VKIN")
-  );
-}
+    console.log("Scanning VKIN...");
+    updatedWalletCache.VKIN = await retryRpc(() => fetchOwnedTokenIds(vkin, wallet, "VKIN"));
 
-if (shouldScanVQLE) {
-  console.log("Scanning VQLE...");
-  updatedWalletCache.VQLE = await retryRpc(() =>
-    fetchOwnedTokenIds(vqle, wallet, "VQLE")
-  );
-}
+    console.log("Scanning VQLE...");
+    updatedWalletCache.VQLE = await retryRpc(() => fetchOwnedTokenIds(vqle, wallet, "VQLE"));
 
-if (shouldScanSCIONS) {
-  console.log("Scanning SCIONS...");
-  updatedWalletCache.SCIONS = await retryRpc(() =>
-    fetchOwnedTokenIds(scions, wallet, "SCIONS")
-  );
-}
+    console.log("Scanning SCIONS...");
+    updatedWalletCache.SCIONS = await retryRpc(() => fetchOwnedTokenIds(scions, wallet, "SCIONS"));
 
-if (shouldScanEVG) {
-  console.log("Scanning EVG...");
-  updatedWalletCache.EVG = await retryRpc(() =>
-    fetchOwnedTokenIds(evg, wallet, "EVG")
-  );
-}
+    console.log("Scanning EVG...");
+    updatedWalletCache.EVG = await retryRpc(() => fetchOwnedTokenIds(evg, wallet, "EVG"));
 
-walletCache = updatedWalletCache;
-cache[wallet] = walletCache;
-writeOwnerCache(cache);
+    cache[wallet] = updatedWalletCache;
+    writeOwnerCache(cache);
 
-if (forceRefresh) {
-  refreshCooldowns.set(wallet, Date.now());
-}
+    console.log(
+      `Force cache filled: ${updatedWalletCache.VKIN.length} VKIN, ${updatedWalletCache.VQLE.length} VQLE, ${updatedWalletCache.SCIONS.length} SCIONS, ${updatedWalletCache.EVG.length} EVG`
+    );
 
-    console.log(`Force cache filled: ${vkinIds.length} VKIN, ${vqleIds.length} VQLE, ${scionsIds.length} SCIONS, ${evgIds.length} EVG`);
-
-    res.json({ success: true, tokens: { VKIN: vkinIds.length, VQLE: vqleIds.length, SCIONS: scionsIds.length, EVG: evgIds.length } });
+    res.json({
+      success: true,
+      tokens: {
+        VKIN: updatedWalletCache.VKIN.length,
+        VQLE: updatedWalletCache.VQLE.length,
+        SCIONS: updatedWalletCache.SCIONS.length,
+        EVG: updatedWalletCache.EVG.length,
+      },
+    });
   } catch (err) {
     console.error("Force cache failed:", err.message);
     res.status(500).json({ error: err.message });
@@ -308,22 +304,13 @@ router.get("/mapping.json", (req, res) => {
   }
 });
 
-router.get("/staked/:wallet", async (req, res) => {
-  try {
-    const wallet = req.params.wallet.toLowerCase();
-
-    const data = await loadStakes();
-
-    res.json(data[wallet] || []);
-  } catch (err) {
-    console.error(err);
-    res.json([]);
-  }
-});
-
-router.post("/admin/seed-stakes", async (req, res) => {
-  await fs.writeFile(STAKES_FILE, JSON.stringify(req.body, null, 2));
-  res.json({ ok: true });
-});
+// NOTE: this file used to also export GET /staked/:wallet and POST
+// /admin/seed-stakes. Both referenced an undefined STAKES_FILE/loadStakes
+// (guaranteed crash/dead code — no staking data source was ever wired up),
+// weren't called from the frontend anywhere, and /admin/seed-stakes had
+// no authentication at all — as written it would have let any caller
+// overwrite that file with arbitrary JSON. Removed rather than left as
+// a live, unauthenticated arbitrary-file-write endpoint. If NFT staking
+// is built out, re-add it with real auth and a real data source.
 
 export default router;

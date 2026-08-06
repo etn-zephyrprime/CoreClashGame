@@ -17,6 +17,7 @@ import sseRouter from "./routes/sse.js";
 import nftsRouter from "./routes/nfts.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import xpRouter from "./routes/xp.js";
+import authRouter from "./routes/auth.js";
 import testTelegramRoutes from "./routes/testTelegram.js";
 
 import { startCoreBurnListener } from "./burnListener.js";
@@ -62,6 +63,7 @@ app.use("/images", express.static(METADATA_IMAGES_DIR));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 // ---------------- ROUTES ----------------
+app.use("/auth", authRouter);
 app.use("/games", gamesRouter);
 app.use("/leaderboard", leaderboardRouter);
 app.use("/events", sseRouter);

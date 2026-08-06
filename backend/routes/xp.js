@@ -1,5 +1,6 @@
 import express from "express";
 import { authWallet } from "../middleware/authWallet.js";
+import { requireAdmin } from "../middleware/authGame.js";
 import {
   ensurePlayer,
   awardDailyLoginXp,
@@ -116,8 +117,8 @@ router.post("/ecosystem-click", authWallet, (req, res) => {
   }
 });
 
-/* ---------------- DEBUG ALL XP DATA ---------------- */
-router.get("/debug/all", (req, res) => {
+/* ---------------- DEBUG ALL XP DATA (admin only) ---------------- */
+router.get("/debug/all", authWallet, requireAdmin, (req, res) => {
   try {
     const wallet = req.query.wallet?.toLowerCase();
     const type = req.query.type?.toLowerCase(); 
@@ -179,7 +180,11 @@ router.get("/debug/all", (req, res) => {
   }
 });
 
-router.post("/debug/backfill-evg-rewards", async (req, res) => {
+/* ---------------- BACKFILL EVG REWARDS (admin only) ---------------- */
+// This actually transfers real EVG NFTs out of the admin wallet for every
+// player who has crossed a reward level — must never be left open to the
+// public internet.
+router.post("/debug/backfill-evg-rewards", authWallet, requireAdmin, async (req, res) => {
   try {
     const results = await backfillEvgRewardsForExistingPlayers();
 

@@ -21,3 +21,9 @@ export const WETN_TOKEN_ADDRESS = process.env.WETN_TOKEN_ADDRESS;
 export const EXPLORER_BASE_URL = "https://blockexplorer.electroneum.com";
 export const ELECTROSWAP_BASE_URL = "https://app.electroswap.io";
 export const DRIP_FUNDER_ADDRESS = "0x5c13dfF13885FbEc61207d52F992c55a5aa1908d";  // ← Add this to your .env file
+
+// Wallet allowed to perform admin-only backend actions (e.g. /games/:id/backfill).
+// Same address the frontend uses to show admin-only UI (src/config.js ADMIN_ADDRESS).
+export const ADMIN_ADDRESS = (
+  process.env.ADMIN_ADDRESS || "0x3Fd2e5B4AC0efF6DFDF2446abddAB3f66B425099"
+).toLowerCase();
