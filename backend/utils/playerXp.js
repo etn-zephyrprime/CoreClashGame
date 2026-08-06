@@ -292,6 +292,16 @@ all[walletLc] = {
 
   writePlayerXp(all);
 
+  // Declared before any reward loop uses it — this used to be declared
+  // further down, after the NFT-reward loop already referenced it, which
+  // threw a "Cannot access 'rewardResults' before initialization" error
+  // on every level-up that crossed an NFT-reward level. That error was
+  // thrown *after* sendNftReward() had already transferred a real NFT
+  // on-chain but *before* evgRewardedLevels.push(lvl) ran, so the "already
+  // rewarded" bookkeeping never persisted and the same level could be
+  // rewarded again on a later crossing. See CoreClash audit finding #4.
+  const rewardResults = [];
+
   const crossedRewardLevels = getRewardableLevelsCrossed(
     oldLevel,
     newLevel,
@@ -327,8 +337,6 @@ for (const lvl of crossedNftRewardLevels) {
   const shouldSendEtnLevel1 =
     !etnLevel1Rewarded && crossedSpecificLevel(oldLevel, newLevel, ETN_REWARD_LEVEL);
 
-  const rewardResults = [];
-    
   for (const lvl of crossedRewardLevels) {
     try {
       const reward = await sendCoreReward(walletLc, lvl);
