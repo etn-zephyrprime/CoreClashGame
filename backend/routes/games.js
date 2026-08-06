@@ -17,6 +17,7 @@ import { broadcast } from "./sse.js";
 import { adminContract, adminWalletReady } from "../admin.js";
 import { withLock } from "../utils/mutex.js";
 import { authWallet } from "../middleware/authWallet.js";
+import { requireGameParticipant, requireGameCreatorOrAdmin, requireAdmin } from "../middleware/authGame.js";
 import VKIN_ABI from "../../src/abis/VKINABI.json" with { type: "json" };
 import VQLE_ABI from "../../src/abis/VQLEABI.json" with { type: "json" };
 import SCIONS_ABI from "../../src/abis/SCIONSABI.json" with { type: "json" };
@@ -93,13 +94,10 @@ router.get("/:id", (req, res) => {
 });
 
 /* ---------- CREATE GAME ROUTE --------*/
-router.post("/", async (req, res) => {
+router.post("/", authWallet, async (req, res) => {
   console.log("🔥 CREATE GAME HIT", req.body);
 
   const { gameId, creator, stakeToken, stakeAmount } = req.body;
-
-  // convert stake from wei to human-readable format for Telegram messages
-  const prettyStake = formatTokenAmount(stakeAmount, 18, 4);
 
   if (!creator || !stakeToken || !stakeAmount) {
     return res.status(400).json({ error: "Invalid payload" });
@@ -110,6 +108,40 @@ router.post("/", async (req, res) => {
   }
 
   const player1Lc = creator.toLowerCase();
+
+  if (player1Lc !== req.wallet) {
+    return res.status(403).json({ error: "creator must match the authenticated wallet" });
+  }
+
+  // ---------------- MANDATORY ON-CHAIN VERIFICATION ----------------
+  // Without this, anyone could POST a fabricated gameId/creator pair and
+  // farm CREATE_GAME XP (which pays out real CORE/ETN/EVG on level-up)
+  // for a "game" that never happened on-chain.
+  let onChainGame;
+  try {
+    onChainGame = await contract.games(gameId);
+  } catch (chainErr) {
+    console.error(`Chain lookup failed for game ${gameId}:`, chainErr.message || chainErr);
+    return res.status(503).json({ error: "Could not verify game on-chain, please retry" });
+  }
+
+  if (
+    !onChainGame ||
+    onChainGame.player1 === ethers.ZeroAddress ||
+    onChainGame.player1.toLowerCase() !== req.wallet
+  ) {
+    return res.status(400).json({
+      error: "No on-chain createGame() found for this gameId/wallet",
+    });
+  }
+
+  // Trust chain data for the stake, not the caller-supplied body.
+  const chainStakeToken = onChainGame.stakeToken;
+  const chainStakeAmount = onChainGame.stakeAmount.toString();
+
+  // convert stake from wei to human-readable format for Telegram messages
+  const prettyStake = formatTokenAmount(chainStakeAmount, 18, 4);
+
   let createdGamesSnapshot = null;
   let gameCreated = false;
 
@@ -126,8 +158,8 @@ router.post("/", async (req, res) => {
         id: gameId,
         player1: player1Lc,
         player2: null,
-        stakeToken,
-        stakeAmount,
+        stakeToken: chainStakeToken,
+        stakeAmount: chainStakeAmount,
         createdAt: new Date().toISOString(),
         cancelled: false,
         winner: null,
@@ -237,7 +269,7 @@ writeOwnerCache(freshCache);
 });
 
 // ---------------- JOIN GAME ----------------
-router.post("/:id/join", async (req, res) => {
+router.post("/:id/join", authWallet, async (req, res) => {
   console.log("🔥 JOIN GAME HIT", req.params, req.body);
 
   const gameId = Number(req.params.id);
@@ -253,6 +285,32 @@ router.post("/:id/join", async (req, res) => {
 
   if (player2Lc === ethers.ZeroAddress.toLowerCase()) {
     return res.status(400).json({ error: "Zero address not allowed" });
+  }
+
+  if (player2Lc !== req.wallet) {
+    return res.status(403).json({ error: "player2 must match the authenticated wallet" });
+  }
+
+  // ---------------- MANDATORY ON-CHAIN VERIFICATION ----------------
+  // Without this, anyone could POST a fake join and farm JOIN_GAME XP
+  // (which pays out real CORE/ETN/EVG on level-up) without ever calling
+  // joinGame() on-chain.
+  let onChainGame;
+  try {
+    onChainGame = await contract.games(gameId);
+  } catch (chainErr) {
+    console.error(`Chain lookup failed for game ${gameId}:`, chainErr.message || chainErr);
+    return res.status(503).json({ error: "Could not verify join on-chain, please retry" });
+  }
+
+  if (
+    !onChainGame ||
+    onChainGame.player2 === ethers.ZeroAddress ||
+    onChainGame.player2.toLowerCase() !== req.wallet
+  ) {
+    return res.status(400).json({
+      error: "No on-chain joinGame() found for this gameId/wallet",
+    });
   }
 
   try {
@@ -344,9 +402,9 @@ router.post("/:id/reveal", authWallet, async (req, res) => {
       return res.status(400).json({ error: "Missing reveal data" });
     }
 
-    if (nftContracts.length !== tokenIds.length) {
+    if (nftContracts.length !== 3 || tokenIds.length !== 3) {
       return res.status(400).json({
-        error: "nftContracts and tokenIds length mismatch",
+        error: "Exactly 3 NFTs are required to reveal a team",
       });
     }
 
@@ -380,35 +438,118 @@ router.post("/:id/reveal", authWallet, async (req, res) => {
       });
     }
 
-    // ---------------- OPTIONAL CHAIN SYNC CHECK ----------------
+    // ---------------- COLLECTION RESOLUTION ----------------
 
-    try {
-      const onChainGame = await contract.games(gameId);
+    const collectionRegistry = {
+      [VKIN_CONTRACT_ADDRESS.toLowerCase()]: { name: "VKIN", address: VKIN_CONTRACT_ADDRESS, abi: VKIN_ABI },
+      [VQLE_CONTRACT_ADDRESS.toLowerCase()]: { name: "VQLE", address: VQLE_CONTRACT_ADDRESS, abi: VQLE_ABI },
+      [SCIONS_CONTRACT_ADDRESS.toLowerCase()]: { name: "SCIONS", address: SCIONS_CONTRACT_ADDRESS, abi: SCIONS_ABI },
+      [EVG_CONTRACT_ADDRESS.toLowerCase()]: { name: "EVG", address: EVG_CONTRACT_ADDRESS, abi: EVG_ABI },
+    };
 
-      const alreadyRevealedOnChain =
-        (slot === "player1" && onChainGame.player1Revealed) ||
-        (slot === "player2" && onChainGame.player2Revealed);
+    const resolvedCollections = [];
 
-      if (alreadyRevealedOnChain) {
-        console.log(
-          `Game ${gameId}: reveal already exists on-chain for ${slot}`
-        );
+    for (let i = 0; i < 3; i++) {
+      const contractAddr = String(nftContracts[i]).toLowerCase();
+      const entry = collectionRegistry[contractAddr];
+
+      if (!entry) {
+        return res.status(400).json({
+          error: `Unknown contract: ${contractAddr}`,
+        });
       }
+
+      resolvedCollections.push(entry);
+    }
+
+    // ---------------- MANDATORY ON-CHAIN VERIFICATION ----------------
+    // This is what stops a caller from reporting a fabricated "team":
+    // every reveal must (a) hash-match the bytes32 commit this wallet
+    // locked in on-chain at createGame/joinGame time, and (b) correspond
+    // to NFTs the wallet actually owns right now. Without both checks
+    // the backend would trust whatever tokenIds/traits the caller sent —
+    // and that data is what decides who wins the staked match.
+
+    let onChainGame;
+    try {
+      onChainGame = await contract.games(gameId);
     } catch (chainErr) {
-      console.warn(
-        `Chain sync check failed for game ${gameId}:`,
+      console.error(
+        `Chain lookup failed for game ${gameId}:`,
         chainErr.message || chainErr
       );
+      return res.status(503).json({
+        error: "Could not verify commitment on-chain, please retry",
+      });
+    }
+
+    const revealedOnChain =
+      slot === "player1"
+        ? onChainGame.player1Revealed
+        : onChainGame.player2Revealed;
+
+    if (!revealedOnChain) {
+      return res.status(400).json({
+        error: "On-chain reveal has not been confirmed for this wallet yet",
+      });
+    }
+
+    const expectedCommit =
+      slot === "player1" ? onChainGame.player1Commit : onChainGame.player2Commit;
+
+    let computedCommit;
+    try {
+      computedCommit = ethers.keccak256(
+        ethers.solidityPacked(
+          ["uint256", "address", "address", "address", "uint256", "uint256", "uint256"],
+          [
+            BigInt(salt),
+            ethers.getAddress(nftContracts[0]),
+            ethers.getAddress(nftContracts[1]),
+            ethers.getAddress(nftContracts[2]),
+            BigInt(tokenIds[0]),
+            BigInt(tokenIds[1]),
+            BigInt(tokenIds[2]),
+          ]
+        )
+      );
+    } catch (hashErr) {
+      return res.status(400).json({ error: "Malformed reveal data" });
+    }
+
+    if (computedCommit.toLowerCase() !== String(expectedCommit).toLowerCase()) {
+      console.warn(
+        `Reveal REJECTED for game ${gameId} (${slot}): commit mismatch — submitted data does not match the on-chain commitment.`
+      );
+      return res.status(400).json({
+        error: "Reveal data does not match your on-chain commitment",
+      });
+    }
+
+    // Ownership check: the commit hash proves the data wasn't swapped
+    // post-commit, but also confirm each NFT is genuinely held by this
+    // wallet right now (defense in depth).
+    try {
+      await Promise.all(
+        resolvedCollections.map(async (entry, i) => {
+          const nftContract = new ethers.Contract(entry.address, entry.abi, provider);
+          const owner = await nftContract.ownerOf(tokenIds[i]);
+
+          if (owner.toLowerCase() !== walletLc) {
+            throw new Error(
+              `${entry.name} token ${tokenIds[i]} is not owned by ${walletLc}`
+            );
+          }
+        })
+      );
+    } catch (ownerErr) {
+      console.warn(`Reveal REJECTED for game ${gameId} (${slot}): ${ownerErr.message}`);
+      return res.status(400).json({
+        error: ownerErr.message || "NFT ownership verification failed",
+      });
     }
 
     // ---------------- METADATA LOADING ----------------
-
-    const addressToCollection = {
-      [VKIN_CONTRACT_ADDRESS.toLowerCase()]: "VKIN",
-      [VQLE_CONTRACT_ADDRESS.toLowerCase()]: "VQLE",
-      [SCIONS_CONTRACT_ADDRESS.toLowerCase()]: "SCIONS",
-      [EVG_CONTRACT_ADDRESS.toLowerCase()]: "EVG",
-    };
 
     const mapping = loadMapping();
 
@@ -416,16 +557,7 @@ router.post("/:id/reveal", authWallet, async (req, res) => {
     const backgrounds = [];
 
     for (let i = 0; i < tokenIds.length; i++) {
-      const contractAddr = String(nftContracts[i]).toLowerCase();
-
-      const collection = addressToCollection[contractAddr];
-
-      if (!collection) {
-        return res.status(400).json({
-          error: `Unknown contract: ${contractAddr}`,
-        });
-      }
-
+      const collection = resolvedCollections[i].name;
       const tokenId = String(tokenIds[i]);
 
       const mapped = mapping[collection]?.[tokenId];
@@ -619,7 +751,7 @@ await withLock(async () => {
 });
 
 // ────────────── BACKFILL ──────────────
-router.post("/:id/backfill", async (req, res) => {
+router.post("/:id/backfill", authWallet, requireAdmin, async (req, res) => {
   try {
     const gameId = Number(req.params.id);
     const { field, value } = req.body;
@@ -657,7 +789,7 @@ router.post("/:id/backfill", async (req, res) => {
 });
 
 // ────────────── COMPUTE RESULTS ──────────────
-router.post("/:id/compute-results", async (req, res) => {
+router.post("/:id/compute-results", authWallet, requireGameParticipant, async (req, res) => {
   try {
     const gameId = Number(req.params.id);
 
@@ -778,7 +910,7 @@ writeGames(games);
 });
 
 /* ---------------- POST WINNER ---------------- */
-router.post("/:id/post-winner", async (req, res) => {
+router.post("/:id/post-winner", authWallet, requireGameParticipant, async (req, res) => {
   try {
     const gameId = Number(req.params.id);
 
@@ -879,20 +1011,16 @@ if (!game.tie && (!winnerAddress || String(winnerAddress).toLowerCase() === zero
 });
 
 /* ---------------- MANUAL SETTLE GAME ---------------- */
-router.post("/:id/settle-game", async (req, res) => {
+router.post("/:id/settle-game", authWallet, requireGameParticipant, async (req, res) => {
   try {
     const gameId = Number(req.params.id);
-    const { settledBy } = req.body;
 
     if (!Number.isInteger(gameId)) {
       return res.status(400).json({ error: "Invalid game ID" });
     }
 
-    if (!settledBy || typeof settledBy !== "string") {
-      return res.status(400).json({ error: "settledBy wallet required" });
-    }
-
-    const settledByLc = settledBy.toLowerCase();
+    // Trust the authenticated wallet, not a caller-supplied body field.
+    const settledByLc = req.wallet;
 
     let gameSnapshot = null;
     let newlySettled = false;
@@ -1134,7 +1262,7 @@ await sendTelegramGameSettled({
 });
 
 /* ---------------- FINALIZE SETTLE ---------------- */
-router.post("/:id/finalize-settle", async (req, res) => {
+router.post("/:id/finalize-settle", authWallet, requireGameParticipant, async (req, res) => {
   const gameId = Number(req.params.id);
   const { txHash } = req.body;
 
@@ -1142,8 +1270,28 @@ router.post("/:id/finalize-settle", async (req, res) => {
     return res.status(400).json({ error: "Invalid game ID" });
   }
 
-  if (!txHash) {
-    return res.status(400).json({ error: "Missing txHash" });
+  if (!txHash || typeof txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+    return res.status(400).json({ error: "Missing or malformed txHash" });
+  }
+
+  // Don't just trust a caller-supplied txHash — confirm it's a real,
+  // successful transaction sent to the game contract before recording
+  // the game as settled off of it.
+  try {
+    const receipt = await provider.getTransactionReceipt(txHash);
+
+    if (
+      !receipt ||
+      receipt.status !== 1 ||
+      receipt.to?.toLowerCase() !== GAME_ADDRESS.toLowerCase()
+    ) {
+      return res.status(400).json({
+        error: "txHash is not a confirmed, successful transaction to the game contract",
+      });
+    }
+  } catch (chainErr) {
+    console.error(`Receipt lookup failed for ${txHash}:`, chainErr.message || chainErr);
+    return res.status(503).json({ error: "Could not verify txHash on-chain, please retry" });
   }
 
   try {
@@ -1182,13 +1330,8 @@ router.post("/:id/finalize-settle", async (req, res) => {
   }
 });
 
-    // ------------------ Setup provider and wallet ------------------
-    if (!BACKEND_PRIVATE_KEY.startsWith("0x")) {
-      throw new Error("Backend private key must start with 0x");
-    }
-
 /* ---------- CANCEL UNJOINED GAME ----------- */
-router.post("/:id/cancel-unjoined", async (req, res) => {
+router.post("/:id/cancel-unjoined", authWallet, requireGameCreatorOrAdmin, async (req, res) => {
   try {
     const gameId = Number(req.params.id);
 

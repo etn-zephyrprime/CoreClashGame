@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import React, { useEffect, useState } from "react";
 import mapping from "./mapping.json"; // Frontend mapping
 import { BACKEND_URL, ADMIN_ADDRESS } from "./config.js"
+import { authFetch } from "./auth/authClient.js";
 
 const addressToCollection = {
   "0x3fc7665b1f6033ff901405cddf31c2e04b8a2ab4": "VKIN",
@@ -185,11 +186,10 @@ const handleRetryBackendReveal = async (gameId) => {
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+          const res = await authFetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-wallet": liveAccount,
             },
             body: JSON.stringify({
               player: liveAccount,
@@ -198,7 +198,7 @@ const handleRetryBackendReveal = async (gameId) => {
               tokenIds,
               backgrounds,
             }),
-          });
+          }, liveAccount, signer);
 
           const backendData = await res.json().catch(() => ({}));
 

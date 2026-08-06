@@ -13,6 +13,11 @@
 
 # misc
 .DS_Store
+
+# env files — matches .env, backend/.env, etc. at any depth (no leading
+# slash). Previously only .env.local/.env.*.local were excluded, which
+# left the plain .env committed to git history; see git rm --cached .env.
+.env
 .env.local
 .env.development.local
 .env.test.local

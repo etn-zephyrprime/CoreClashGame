@@ -12,6 +12,7 @@ import GameABI from "./abis/GameABI.json";
 import ERC20ABI from "./abis/ERC20ABI.json";
 
 import { useCoreClashWallet } from "./wallet/coreClashWallet.jsx";
+import { authFetch } from "./auth/authClient.js";
 
 import {
   GAME_ADDRESS,
@@ -224,15 +225,15 @@ useEffect(() => {
 const handleEcosystemClick = async (linkKey, url) => {
   try {
     if (account) {
-      const res = await fetch(`${BACKEND_URL}/xp/ecosystem-click`, {
+      const signer = await provider.getSigner();
+      const res = await authFetch(`${BACKEND_URL}/xp/ecosystem-click`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-wallet": account.toLowerCase(),
         },
         credentials: "include",
         body: JSON.stringify({ linkKey }),
-      });
+      }, account, signer);
 
       const data = await res.json().catch(() => ({}));
       console.log("Ecosystem click response:", linkKey, res.status, data);
@@ -311,14 +312,14 @@ const loadXpProfile = useCallback(async () => {
   try {
     setXpLoading(true);
 
-    const res = await fetch(`${BACKEND_URL}/xp/me`, {
+    const signer = await provider.getSigner();
+    const res = await authFetch(`${BACKEND_URL}/xp/me`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        "x-wallet": account.toLowerCase(),
       },
       credentials: "include",
-    });
+    }, account, signer);
 
     const data = await res.json();
 
@@ -339,14 +340,14 @@ const claimDailyLoginXp = useCallback(async () => {
   if (!account) return;
 
   try {
-    const res = await fetch(`${BACKEND_URL}/xp/login`, {
+    const signer = await provider.getSigner();
+    const res = await authFetch(`${BACKEND_URL}/xp/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-wallet": account.toLowerCase(),
       },
       credentials: "include",
-    });
+    }, account, signer);
 
     const data = await res.json();
 
@@ -815,7 +816,7 @@ const createGame = useCallback(async () => {
       backgrounds: nfts.map((n) => n.metadata?.background || ""),
     });
 
-    const backendRes = await fetch(`${BACKEND_URL}/games`, {
+    const backendRes = await authFetch(`${BACKEND_URL}/games`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -826,7 +827,7 @@ const createGame = useCallback(async () => {
         stakeToken,
         stakeAmount: stakeWei.toString(),
       }),
-    });
+    }, account, signerSafe);
 
     const backendData = await backendRes.json();
 
@@ -959,7 +960,7 @@ const joinGame = async (gameId) => {
       throw new Error("On-chain player mismatch");
     }
 
-    const joinRes = await fetch(`${BACKEND_URL}/games/${numericGameId}/join`, {
+    const joinRes = await authFetch(`${BACKEND_URL}/games/${numericGameId}/join`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -968,7 +969,7 @@ const joinGame = async (gameId) => {
         player2: gameOnChain.player2,
         player2JoinedAt: new Date().toISOString(),
       }),
-    });
+    }, liveAccount, liveSigner);
 
     const joinData = await joinRes.json();
 
@@ -1092,11 +1093,10 @@ const autoRevealIfPossible = useCallback(
 
       await tx.wait();
 
-      const revealRes = await fetch(`${BACKEND_URL}/games/${g.id}/reveal`, {
+      const revealRes = await authFetch(`${BACKEND_URL}/games/${g.id}/reveal`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-wallet": liveAccountLower,
         },
         body: JSON.stringify({
           player: liveAccountLower,
@@ -1104,7 +1104,7 @@ const autoRevealIfPossible = useCallback(
           nftContracts,
           tokenIds: tokenIds.map((t) => t.toString()),
         }),
-      });
+      }, liveAccountLower, signer);
 
       const revealJson = await revealRes.json().catch(() => ({}));
 
@@ -1189,11 +1189,10 @@ const handleRevealFile = useCallback(
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+          const res = await authFetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-wallet": liveAccount.toLowerCase(),
             },
             body: JSON.stringify({
               player: liveAccount.toLowerCase(),
@@ -1202,7 +1201,7 @@ const handleRevealFile = useCallback(
               tokenIds,
               backgrounds,
             }),
-          });
+          }, liveAccount, signer);
 
           let backendData;
           try {
@@ -1292,11 +1291,10 @@ const handleRetryBackendReveal = useCallback(
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            const res = await fetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
+            const res = await authFetch(`${BACKEND_URL}/games/${gameId}/reveal`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "x-wallet": liveAccount.toLowerCase(),
               },
               body: JSON.stringify({
                 player: liveAccount.toLowerCase(),
@@ -1305,7 +1303,7 @@ const handleRetryBackendReveal = useCallback(
                 tokenIds,
                 backgrounds,
               }),
-            });
+            }, liveAccount, signer);
 
             const backendData = await res.json().catch(() => ({}));
 
@@ -1362,14 +1360,16 @@ const manualSettleGame = useCallback(
       const liveSigner = await provider.getSigner();
       const liveAccount = await liveSigner.getAddress();
 
-      const computeHttpRes = await fetch(
+      const computeHttpRes = await authFetch(
         `${BACKEND_URL}/games/${gameId}/compute-results`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
+        liveAccount,
+        liveSigner
       );
 
       const computeRes = await computeHttpRes.json();
@@ -1381,15 +1381,16 @@ const manualSettleGame = useCallback(
 
       console.log("Computed results:", computeRes);
 
-      const postWinnerHttpRes = await fetch(
+      const postWinnerHttpRes = await authFetch(
         `${BACKEND_URL}/games/${gameId}/post-winner`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-wallet": liveAccount.toLowerCase(),
           },
-        }
+        },
+        liveAccount,
+        liveSigner
       );
 
       const postWinnerRes = await postWinnerHttpRes.json();
@@ -1404,18 +1405,19 @@ const manualSettleGame = useCallback(
 
       console.log("Winner posted:", postWinnerRes);
 
-      const settleHttpRes = await fetch(
+      const settleHttpRes = await authFetch(
         `${BACKEND_URL}/games/${gameId}/settle-game`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-wallet": liveAccount.toLowerCase(),
           },
           body: JSON.stringify({
             settledBy: liveAccount,
           }),
-        }
+        },
+        liveAccount,
+        liveSigner
       );
 
       const settleRes = await settleHttpRes.json();
