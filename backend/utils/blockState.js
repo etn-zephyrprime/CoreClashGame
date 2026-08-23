@@ -2,11 +2,10 @@
 import fs from "fs";
 import path from "path";
 import { withLock } from "./mutex.js";
+import { BASE_DATA_DIR } from "./dataDir.js";
+import { queueR2Upload } from "./r2Sync.js";
 
-const DATA_DIR = fs.existsSync("/backend/data")
-  ? "/backend/data/state"
-  : path.join(process.cwd(), "state");
-
+const DATA_DIR = path.join(BASE_DATA_DIR, "state");
 const STATE_FILE = path.join(DATA_DIR, "lastBlock.json");
 
 function ensureStateDir() {
@@ -41,6 +40,7 @@ function saveStateFile(state) {
       "utf8"
     );
     fs.renameSync(tempFile, STATE_FILE);
+    queueR2Upload(STATE_FILE);
   } catch (err) {
     console.error("saveStateFile error:", err);
     throw err;

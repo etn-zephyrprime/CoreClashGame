@@ -1,11 +1,8 @@
 // backend/store/inactiveXpReminderStore.js
 import fs from "fs";
 import path from "path";
-
-const BASE_DATA_DIR =
-  process.env.DATA_DIR ||
-  process.env.RENDER_DISK_PATH ||
-  "/backend/data";
+import { BASE_DATA_DIR } from "../utils/dataDir.js";
+import { queueR2Upload } from "../utils/r2Sync.js";
 
 const FILE = path.join(BASE_DATA_DIR, "inactiveXpReminders.json");
 
@@ -29,4 +26,5 @@ export function readInactiveXpReminderState() {
 export function writeInactiveXpReminderState(state) {
   fs.mkdirSync(path.dirname(FILE), { recursive: true });
   fs.writeFileSync(FILE, JSON.stringify(state, null, 2));
+  queueR2Upload(FILE);
 }

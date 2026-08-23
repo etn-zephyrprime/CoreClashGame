@@ -1,11 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { withLock } from "../utils/mutex.js";
+import { BASE_DATA_DIR } from "../utils/dataDir.js";
+import { queueR2Upload } from "../utils/r2Sync.js";
 
-const DATA_DIR = fs.existsSync("/backend/data")
-  ? "/backend/data/games"
-  : path.join(process.cwd(), "games");
-
+const DATA_DIR = path.join(BASE_DATA_DIR, "games");
 const GAMES_FILE = path.join(DATA_DIR, "games.json");
 
 function ensureGamesStore() {
@@ -40,6 +39,7 @@ export function writeGames(games) {
     const tempFile = `${GAMES_FILE}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(games, null, 2), "utf8");
     fs.renameSync(tempFile, GAMES_FILE);
+    queueR2Upload(GAMES_FILE);
     console.log(`💾 Wrote ${games.length} games to:`, GAMES_FILE);
   } catch (err) {
     console.error("Failed to write games:", err.message);

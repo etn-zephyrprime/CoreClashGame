@@ -6,11 +6,7 @@ import {
   saveWeeklyLeaderboard,
   getWeeklyLeaderboardsSorted,
 } from "../store/weeklyLeaderboardStore.js";
-
-const DATA_DIR =
-  process.env.DATA_DIR ||
-  process.env.RENDER_DISK_PATH ||
-  "/backend/data";
+import { BASE_DATA_DIR as DATA_DIR } from "../utils/dataDir.js";
 
 const XP_FILE = path.join(DATA_DIR, "playerXp.json");
 const XP_ACTIONS_FILE = path.join(DATA_DIR, "xpActions.json");

@@ -15,10 +15,7 @@ import {
   shortWallet,
 } from "./telegramBot.js";
 
-const BASE_DATA_DIR =
-  process.env.DATA_DIR ||
-  process.env.RENDER_DISK_PATH ||
-  "/backend/data";
+import { BASE_DATA_DIR } from "./dataDir.js";
 
 const XP_FILE = path.join(BASE_DATA_DIR, "playerXp.json");
 const XP_ACTIONS_FILE = path.join(BASE_DATA_DIR, "xpActions.json");

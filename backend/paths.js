@@ -7,6 +7,7 @@ import VQLE_ABI_JSON from "../src/abis/VQLEABI.json" with { type: "json" };
 import SCIONS_ABI_JSON from "../src/abis/SCIONSABI.json" with { type: "json" };
 import EVG_ABI_JSON from "../src/abis/EVGABI.json" with { type: "json" };
 import { RPC_URL } from "./config.js";
+import { BASE_DATA_DIR } from "./utils/dataDir.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,12 +19,7 @@ const COLLECTION_IMAGE_FORMATS = {
   VKIN: "png",
 };
 
-const BASE_DATA_DIR =
-  process.env.DATA_DIR ||
-  process.env.RENDER_DISK_PATH ||
-  "/backend/data";
-
-console.log("BASE_DATA_DIR =", BASE_DATA_DIR);
+export { BASE_DATA_DIR };
 
 export const METADATA_JSON_DIR = path.join(
   BASE_DATA_DIR,
@@ -57,10 +53,10 @@ function ensureDir(dir) {
 }
 
 export function ensureDataPaths() {
-  if (!fs.existsSync(BASE_DATA_DIR)) {
-    throw new Error(`Base data dir is not mounted or missing: ${BASE_DATA_DIR}`);
-  }
-
+  // BASE_DATA_DIR itself is guaranteed to exist by dataDir.js at import time
+  // (it falls back to a local directory when there's no mounted disk), so
+  // there's nothing to throw on here anymore — just make sure the subdirs
+  // we read/write are there.
   ensureDir(METADATA_JSON_DIR);
   ensureDir(METADATA_IMAGES_DIR);
   ensureDir(REVEAL_DIR);
