@@ -21,14 +21,12 @@ import xpRouter from "./routes/xp.js";
 import authRouter from "./routes/auth.js";
 import testTelegramRoutes from "./routes/testTelegram.js";
 
-import { startCoreBurnListener } from "./burnListener.js";
-import { startSwapListener } from "./swapListener.js";
-import { startNftMintListener } from "./nftMintListener.js";
-import { startNftMarketplaceListener } from "./nftMarketplaceListener.js";
-
-import { startZephyrosAdvertScheduler } from "./utils/telegramBot.js";
+// startCoreBurnListener, startSwapListener, startNftMintListener, startNftMarketplaceListener,
+// startZephyrosAdvertScheduler, and startDripBot moved to ETNSubdomainService
+// (backend/utils/coreClash*.js) — see disable-migrated-telegram-bots branch / PR for why. Left
+// unimported here (not deleted) so re-enabling is a one-line revert if ever needed; the modules
+// themselves are untouched.
 import { startInactiveXpReminderScheduler } from "./utils/inactiveXpReminder.js";
-import { startDripBot } from "./utils/dripBot.js";
 
 import { reconcileActiveGamesScheduled } from "./reconcile.js";
 import { backfillWeeklyLeaderboardsFromGames } from "./store/weeklyLeaderboardStore.js";
@@ -210,15 +208,19 @@ async function startBackgroundServices() {
         }
     };
 
-    await safeStart("CORE Burn Listener", startCoreBurnListener);
-    await safeStart("Swap Listener", startSwapListener);
-    await safeStart("NFT Mint Listener", startNftMintListener);
-    await safeStart("NFT Marketplace Listener", startNftMarketplaceListener);
+    // CORE Burn Listener, Swap Listener, NFT Mint Listener, NFT Marketplace Listener, Zephyros
+    // Advert Scheduler, and CORE Drip Bot moved to ETNSubdomainService — see the (now-unused)
+    // imports note above. Commented out rather than deleted so re-enabling here is a one-line
+    // revert if ever needed.
+    // await safeStart("CORE Burn Listener", startCoreBurnListener);
+    // await safeStart("Swap Listener", startSwapListener);
+    // await safeStart("NFT Mint Listener", startNftMintListener);
+    // await safeStart("NFT Marketplace Listener", startNftMarketplaceListener);
+    // safeStart("Zephyros Advert Scheduler", startZephyrosAdvertScheduler);
+    // await safeStart("CORE Drip Bot", startDripBot);
 
     // Schedulers (these are usually synchronous)
-    safeStart("Zephyros Advert Scheduler", startZephyrosAdvertScheduler);
     safeStart("Inactive XP Reminder Scheduler", startInactiveXpReminderScheduler);
-    await safeStart("CORE Drip Bot", startDripBot);
 
     console.log("✅ All background services initialized");
 }
