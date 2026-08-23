@@ -1,11 +1,8 @@
 // backend/store/advertSchedulerStore.js
 import fs from "fs";
 import path from "path";
-
-const BASE_DATA_DIR =
-  process.env.DATA_DIR ||
-  process.env.RENDER_DISK_PATH ||
-  "/backend/data";
+import { BASE_DATA_DIR } from "./dataDir.js";
+import { queueR2Upload } from "./r2Sync.js";
 
 const FILE = path.join(BASE_DATA_DIR, "advertScheduler.json");
 
@@ -52,6 +49,7 @@ export function writeAdvertState(state) {
     };
 
     fs.writeFileSync(FILE, JSON.stringify(nextState, null, 2));
+    queueR2Upload(FILE);
     return nextState;
   } catch (err) {
     console.error("[ADVERT STORE] Failed to write advert state:", err.message);

@@ -11,6 +11,7 @@ import { checkFrontendMapping } from "../src/checkFrontendMapping.js";
 import { initAdminWallet } from "./admin.js";
 import { loadMapping, METADATA_JSON_DIR, METADATA_IMAGES_DIR, ensureDataPaths, FRONTEND_MAPPING_FILE } from "./paths.js";
 import { readBurnTotal } from "./store/burnStore.js";
+import { restoreDataFromR2 } from "./utils/r2Sync.js";
 
 import gamesRouter from "./routes/games.js";
 import sseRouter from "./routes/sse.js";
@@ -261,6 +262,13 @@ async function bootstrap() {
         if (!process.env.BACKEND_PRIVATE_KEY) {
             throw new Error("BACKEND_PRIVATE_KEY is missing");
         }
+
+        // Free-tier instances have no persistent disk, so backend/data starts
+        // empty on every restart/redeploy. Pull back anything that was
+        // mirrored to R2 by a previous run before anything else touches disk.
+        await restoreDataFromR2().catch(err =>
+            console.error("R2 restore failed:", err.message)
+        );
 
         await startBackgroundServices();
 

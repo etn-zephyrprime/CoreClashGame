@@ -1,11 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { withLock } from "./mutex.js";
+import { BASE_DATA_DIR } from "./dataDir.js";
+import { queueR2Upload } from "./r2Sync.js";
 
-const DATA_DIR = fs.existsSync("/backend/data")
-  ? "/backend/data/state"
-  : path.join(process.cwd(), "state");
-
+const DATA_DIR = path.join(BASE_DATA_DIR, "state");
 const STATE_FILE = path.join(DATA_DIR, "nftEventState.json");
 
 function ensureStateDir() {
@@ -32,6 +31,7 @@ function writeState(state) {
   const tempFile = `${STATE_FILE}.tmp`;
   fs.writeFileSync(tempFile, JSON.stringify(state, null, 2), "utf8");
   fs.renameSync(tempFile, STATE_FILE);
+  queueR2Upload(STATE_FILE);
 }
 
 export async function hasSeenNftEvent(eventKey) {

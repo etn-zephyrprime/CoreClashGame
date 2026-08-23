@@ -20,6 +20,7 @@ import {
   ensureDataPaths,
   loadMapping,
 } from "../paths.js";
+import { queueR2Upload } from "./r2Sync.js";
 
 /* ---------------- Paths ---------------- */
 const __filename = fileURLToPath(import.meta.url);
@@ -164,6 +165,7 @@ let imageFile = defaultImageFile("VKIN", tokenId);
 
         metadata = JSON.parse(rawJson.toString());
         fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
+        queueR2Upload(jsonPath);
         console.log(`💾 Saved VKIN JSON ${jsonFile}`);
       }
 
@@ -175,6 +177,7 @@ let imageFile = defaultImageFile("VKIN", tokenId);
           const img = await fetchWithRetries(metadata.image, 3, 5000, "arraybuffer");
           if (img) {
             fs.writeFileSync(imagePath, img);
+            queueR2Upload(imagePath);
             console.log(`🖼️ Downloaded VKIN image ${downloadedImageFile}`);
           }
         }
@@ -221,6 +224,7 @@ async function generateVQLE(rows, existingMap) {
 
       metadata = JSON.parse(rawJson.toString());
       fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
+      queueR2Upload(jsonPath);
       console.log(`💾 Saved VQLE JSON ${jsonFile}`);
     }
 
@@ -234,6 +238,7 @@ let imageFile = defaultImageFile("VQLE", tokenId);
         const img = await fetchWithRetries(metadata.image, 3, 5000, "arraybuffer");
         if (img) {
           fs.writeFileSync(imagePath, img);
+          queueR2Upload(imagePath);
           console.log(`🖼️ Downloaded VQLE image ${downloadedImageFile}`);
         }
       }
@@ -287,6 +292,7 @@ let imageFile = defaultImageFile("SCIONS", tokenId);
 
         metadata = JSON.parse(rawJson.toString());
         fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
+        queueR2Upload(jsonPath);
         console.log(`💾 Saved SCIONS JSON ${jsonFile}`);
       }
 
@@ -298,6 +304,7 @@ let imageFile = defaultImageFile("SCIONS", tokenId);
           const img = await fetchWithRetries(metadata.image, 3, 5000, "arraybuffer");
           if (img) {
             fs.writeFileSync(imagePath, img);
+            queueR2Upload(imagePath);
             console.log(`🖼️ Downloaded SCIONS image ${downloadedImageFile}`);
           }
         }
@@ -347,6 +354,7 @@ const baseCid = EVG_IPFS_BASE
 
       metadata = JSON.parse(rawJson.toString());
       fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
+      queueR2Upload(jsonPath);
       console.log(`💾 Saved EVG JSON ${jsonFile}`);
     }
 
@@ -360,6 +368,7 @@ if (metadata.image?.startsWith("ipfs://")) {
         const img = await fetchWithRetries(metadata.image, 3, 5000, "arraybuffer");
         if (img) {
           fs.writeFileSync(imagePath, img);
+          queueR2Upload(imagePath);
           console.log(`🖼️ Downloaded EVG image ${downloadedImageFile}`);
         }
       }
@@ -404,6 +413,7 @@ export async function generateMapping(mode = "ALL") {
   }
 
   fs.writeFileSync(MAPPING_FILE, rows.join("\n"));
+  queueR2Upload(MAPPING_FILE);
   console.log(`✅ mapping.csv complete for mode=${selected}`);
 }
 

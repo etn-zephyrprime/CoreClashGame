@@ -5,6 +5,8 @@ import ERC20ABI from "../src/abis/ERC20ABI.json" with { type: "json" };
 import fs from "fs";
 import path from "path";
 import { sendZephyrosBurnMessage, formatTokenAmount } from "./utils/telegramBot.js";
+import { BASE_DATA_DIR } from "./utils/dataDir.js";
+import { queueR2Upload } from "./utils/r2Sync.js";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const TRANSFER_TOPIC = ethers.id("Transfer(address,address,uint256)");
@@ -13,10 +15,7 @@ const MAX_BLOCK_RANGE = 500;
 
 const INITIAL_SUPPLY = 1_000_000;
 
-const STATE_DIR = fs.existsSync("/backend/data")
-  ? "/backend/data/state"
-  : path.join(process.cwd(), "state");
-
+const STATE_DIR = path.join(BASE_DATA_DIR, "state");
 const BURN_STATE_FILE = path.join(STATE_DIR, "lastBurnBlock.json");
 
 function ensureStateDir() {
@@ -48,6 +47,7 @@ function saveLastBurnBlock(block) {
       "utf8"
     );
     fs.renameSync(tempFile, BURN_STATE_FILE);
+    queueR2Upload(BURN_STATE_FILE);
   } catch (err) {
     console.error("[BurnListener] saveLastBurnBlock error:", err);
   }

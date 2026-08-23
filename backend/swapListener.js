@@ -6,6 +6,8 @@ import { RPC_URL } from "./config.js";
 import { TRACKED_TOKENS, TOKEN_SYMBOL_MAP  } from "./swapsConfig.js";
 import { sendZephyrosCoreSwapMessage } from "./utils/telegramBot.js"; //sendSwapMessage,
 import { buildPriceEngine } from "./utils/priceEngine.js";
+import { BASE_DATA_DIR } from "./utils/dataDir.js";
+import { queueR2Upload } from "./utils/r2Sync.js";
 const POLL_INTERVAL_MS = 60000;
 const MAX_BLOCK_RANGE = 500;
 const REORG_BUFFER_BLOCKS = 2;
@@ -366,10 +368,7 @@ function decodeSwap(parsed, poolMeta, trackedMeta) {
 
 let started = false;
 
-const STATE_DIR = fs.existsSync("/backend/data")
-  ? "/backend/data/state"
-  : path.join(process.cwd(), "state");
-
+const STATE_DIR = path.join(BASE_DATA_DIR, "state");
 const SWAP_STATE_FILE = path.join(STATE_DIR, "lastSwapBlock.json");
 
 function ensureStateDir() {
@@ -404,6 +403,7 @@ function saveLastSwapBlock(block) {
       "utf8"
     );
     fs.renameSync(tempFile, SWAP_STATE_FILE);
+    queueR2Upload(SWAP_STATE_FILE);
   } catch (err) {
     console.error("[SwapListener] saveLastSwapBlock error:", err);
     throw err;

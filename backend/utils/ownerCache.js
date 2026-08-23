@@ -1,15 +1,14 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { BASE_DATA_DIR } from "./dataDir.js";
+import { queueR2Upload } from "./r2Sync.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CACHE_DIR = "/backend/data/cache";
+const CACHE_DIR = path.join(BASE_DATA_DIR, "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "owners.json");
-if (!fs.existsSync("/backend/data")) {
-  throw new Error("Persistent disk /backend/data is missing");
-}
 console.log("🔥 ownerCache.js LOADED FROM:", import.meta.url);
 
 function ensureCacheDir() {
@@ -89,6 +88,7 @@ export function writeOwnerCache(cache) {
     );
 
     fs.renameSync(tempFile, CACHE_FILE);
+    queueR2Upload(CACHE_FILE);
 
     console.log(
       `💾 Owner cache written (${Object.keys(normalizedCache).filter((k) => k !== "_meta").length} wallets, all lowercase)`

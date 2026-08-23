@@ -2,8 +2,10 @@ import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
 import { RPC_URL, BACKEND_PRIVATE_KEY, CORE_TOKEN_ADDRESS, EVG_CONTRACT_ADDRESS } from "../config.js";
+import { BASE_DATA_DIR } from "./dataDir.js";
+import { queueR2Upload } from "./r2Sync.js";
 
-const DATA_DIR = "/backend/data";
+const DATA_DIR = BASE_DATA_DIR;
 const XP_FILE = path.join(DATA_DIR, "playerXp.json");
 const XP_ACTIONS_FILE = path.join(DATA_DIR, "xpActions.json");
 
@@ -427,6 +429,7 @@ function writeJsonFile(filePath, data) {
   const tempPath = `${filePath}.tmp`;
   fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf8");
   fs.renameSync(tempPath, filePath);
+  queueR2Upload(filePath);
 }
 
 export function readPlayerXp() {

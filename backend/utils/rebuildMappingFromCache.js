@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { METADATA_JSON_DIR, MAPPING_FILE } from "../paths.js";
+import { queueR2Upload } from "./r2Sync.js";
 
 const VKIN_DIR = path.join(METADATA_JSON_DIR, "VKIN");
 const VQLE_DIR = path.join(METADATA_JSON_DIR, "VQLE");
@@ -54,6 +55,7 @@ function rebuildMapping() {
   }
 
   fs.writeFileSync(MAPPING_FILE, rows.join("\n"));
+  queueR2Upload(MAPPING_FILE);
   console.log("✅ mapping.csv rebuilt from cache");
 }
 

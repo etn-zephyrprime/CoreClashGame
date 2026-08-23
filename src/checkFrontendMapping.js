@@ -4,6 +4,7 @@ import {
   FRONTEND_MAPPING_FILE,
   ensureDataPaths,
 } from "../backend/paths.js";
+import { queueR2Upload } from "../backend/utils/r2Sync.js";
 
 const COLLECTION_IMAGE_FORMATS = {
   EVG: "webp",
@@ -72,6 +73,7 @@ mapping[collectionKey][tokenId] = {
 }
 
   fs.writeFileSync(FRONTEND_MAPPING_FILE, JSON.stringify(mapping, null, 2));
+  queueR2Upload(FRONTEND_MAPPING_FILE);
   console.log(`✅ Frontend mapping.json generated at ${FRONTEND_MAPPING_FILE}`);
   console.log(`Total collections: ${Object.keys(mapping).length}`);
   console.log(

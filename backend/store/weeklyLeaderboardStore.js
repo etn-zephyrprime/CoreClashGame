@@ -3,11 +3,10 @@ import path from "path";
 import { withLock } from "../utils/mutex.js";
 import { readGames } from "./gamesStore.js";
 import { ethers } from "ethers";
+import { BASE_DATA_DIR } from "../utils/dataDir.js";
+import { queueR2Upload } from "../utils/r2Sync.js";
 
-const DATA_DIR = fs.existsSync("/backend/data")
-  ? "/backend/data/leaderboards"
-  : path.join(process.cwd(), "store");
-
+const DATA_DIR = path.join(BASE_DATA_DIR, "leaderboards");
 const STORE_FILE = path.join(DATA_DIR, "weeklyLeaderboards.json");
 
 function ensureStore() {
@@ -42,6 +41,7 @@ export function writeWeeklyLeaderboards(data) {
     const tempFile = `${STORE_FILE}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), "utf8");
     fs.renameSync(tempFile, STORE_FILE);
+    queueR2Upload(STORE_FILE);
   } catch (err) {
     console.error("writeWeeklyLeaderboards error:", err);
     throw err;

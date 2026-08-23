@@ -2,11 +2,13 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { withLock } from "../utils/mutex.js";
+import { BASE_DATA_DIR } from "../utils/dataDir.js";
+import { queueR2Upload } from "../utils/r2Sync.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = "/backend/data/store";
+const DATA_DIR = path.join(BASE_DATA_DIR, "store");
 const FILE = path.join(DATA_DIR, "burnTotal.json");
 
 function ensureDir() {
@@ -43,6 +45,7 @@ export function writeBurnTotal(totalWei) {
     );
 
     fs.renameSync(tempFile, FILE);
+    queueR2Upload(FILE);
   } catch (err) {
     console.error("writeBurnTotal error:", err);
     throw err;
