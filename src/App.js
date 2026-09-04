@@ -13,6 +13,7 @@ import ERC20ABI from "./abis/ERC20ABI.json";
 
 import { useCoreClashWallet } from "./wallet/coreClashWallet.jsx";
 import { authFetch } from "./auth/authClient.js";
+import { DisplayName } from "./hooks/displayName.jsx";
 
 import {
   GAME_ADDRESS,
@@ -1899,7 +1900,7 @@ const renderXpLeaderboardCard = (compact = false) => (
             }}
           >
             <div style={{ fontWeight: 800, color: inactive ? "#ff4d4d" : "#18bb1a" }}>
-              #{idx + 1} {entry.address.slice(0, 6)}...{entry.address.slice(-4)}
+              #{idx + 1} <DisplayName address={entry.address} />
             </div>
 
             <div>Level: <b>{entry.level}</b></div>
@@ -2284,7 +2285,7 @@ const renderLeaderboardCard = (mobile = false) => (
           }}
         >
           <span>
-            #{index + 1} — {entry.address.slice(0, 6)}…{entry.address.slice(-4)}
+            #{index + 1} — <DisplayName address={entry.address} />
           </span>
           <span style={{ textAlign: "center" }}>{entry.played}</span>
           <span style={{ textAlign: "center" }}>{entry.wins}</span>
@@ -2347,7 +2348,7 @@ const renderWeeklyHistory = () =>
               }}
             >
               <span>
-                #{i + 1} — {p.address.slice(0, 6)}…{p.address.slice(-4)}
+                #{i + 1} — <DisplayName address={p.address} />
               </span>
               <span>{p.wins}W / {p.played}P</span>
             </div>
@@ -2826,7 +2827,7 @@ return (
     letterSpacing: 0.3,
   }}
 >
-  {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : ""}
+  {account ? <DisplayName address={account} /> : ""}
 </span>
 
         <div style={{ width: 1, height: 16, background: "#333" }} />

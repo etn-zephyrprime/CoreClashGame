@@ -22,6 +22,12 @@ export const EXPLORER_BASE_URL = "https://blockexplorer.electroneum.com";
 export const ELECTROSWAP_BASE_URL = "https://app.electroswap.io";
 export const DRIP_FUNDER_ADDRESS = "0x5c13dfF13885FbEc61207d52F992c55a5aa1908d";  // ← Add this to your .env file
 
+// Electroneum Name Service's ReverseRegistrar — resolves a wallet to its primary ENS-style name.
+// Same default/override convention as ETNSubdomainService (REVERSE_REGISTRAR_ADDRESS env var,
+// same fallback address) — see backend/utils/primaryNameResolver.js, ported from that repo.
+export const REVERSE_REGISTRAR_ADDRESS =
+  process.env.REVERSE_REGISTRAR_ADDRESS || "0xFBB14eDBD8D3f6E7BB240bFA388f6582df0d8E7A";
+
 // Wallet allowed to perform admin-only backend actions (e.g. /games/:id/backfill).
 // Same address the frontend uses to show admin-only UI (src/config.js ADMIN_ADDRESS).
 export const ADMIN_ADDRESS = (

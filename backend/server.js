@@ -20,6 +20,7 @@ import leaderboardRouter from "./routes/leaderboard.js";
 import xpRouter from "./routes/xp.js";
 import authRouter from "./routes/auth.js";
 import testTelegramRoutes from "./routes/testTelegram.js";
+import namesRouter from "./routes/names.js";
 
 // startCoreBurnListener, startSwapListener, startNftMintListener, startNftMarketplaceListener,
 // startZephyrosAdvertScheduler, and startDripBot moved to ETNSubdomainService
@@ -69,6 +70,7 @@ app.use("/events", sseRouter);
 app.use("/nfts", nftsRouter);
 app.use("/xp", xpRouter);
 app.use("/admin", testTelegramRoutes);
+app.use("/names", namesRouter);
 
 // ---------------- METADATA ROUTE ----------------
         const COLLECTION_IMAGE_FORMATS = {

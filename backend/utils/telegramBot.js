@@ -1,7 +1,8 @@
 // backend/utils/telegramBot.js
 import axios from "axios";
-import { EXPLORER_BASE_URL, ELECTROSWAP_BASE_URL,
+import { EXPLORER_BASE_URL, ELECTROSWAP_BASE_URL, RPC_URL, REVERSE_REGISTRAR_ADDRESS,
 } from "../config.js";
+import { createPrimaryNameResolver } from "./primaryNameResolver.js";
 
 import {
   CLUB_TELEGRAM_BOT_TOKEN,
@@ -111,6 +112,15 @@ function shortWallet(address) {
   if (!address || typeof address !== "string") return "Unknown";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
+
+// Resolves a wallet to its Electroneum Name Service primary name for display in these
+// notifications, falling back to shortWallet's shortened address if it has none set. One shared
+// resolver instance (not per-message) so its defaultResolver() lookup is only ever fetched once —
+// see primaryNameResolver.js's header comment for why that matters.
+const resolveWallet = createPrimaryNameResolver(
+  new ethers.JsonRpcProvider(RPC_URL),
+  REVERSE_REGISTRAR_ADDRESS
+);
 
 function formatTokenAmount(amount, decimals = 18, maxFractionDigits = 4) {
   try {
@@ -442,7 +452,7 @@ export async function sendTelegramGameCreated({
 }) {
   const text =
     `🎮 <b>Game #${escapeHtml(gameId)}</b> created\n` +
-    `Creator: <code>${escapeHtml(shortWallet(creator))}</code>\n` +
+    `Creator: <code>${escapeHtml(await resolveWallet(creator))}</code>\n` +
     `Stake: <b>${escapeHtml(stakeAmount)} ${escapeHtml(tokenLabel)}</b>`;
 
   return sendTelegramGroupMessage(text);
@@ -453,10 +463,12 @@ export async function sendTelegramGameJoined({
   player1,
   player2,
 }) {
+  const [p1Name, p2Name] = await Promise.all([resolveWallet(player1), resolveWallet(player2)]);
+
   const text =
     `⚔️ <b>Game #${escapeHtml(gameId)}</b> joined\n` +
-    `P1: <code>${escapeHtml(shortWallet(player1))}</code>\n` +
-    `P2: <code>${escapeHtml(shortWallet(player2))}</code>\n` +
+    `P1: <code>${escapeHtml(p1Name)}</code>\n` +
+    `P2: <code>${escapeHtml(p2Name)}</code>\n` +
     `Reveal phase is now live.`;
 
   return sendTelegramGroupMessage(text);
@@ -473,7 +485,7 @@ export async function sendTelegramReveal({
 
   const text =
     `📂 <b>Game #${escapeHtml(gameId)}</b> reveal update\n` +
-    `Revealed by: <code>${escapeHtml(shortWallet(revealedBy))}</code>\n` +
+    `Revealed by: <code>${escapeHtml(await resolveWallet(revealedBy))}</code>\n` +
     `Progress: <b>${revealCount}/2</b>`;
 
   return sendTelegramGroupMessage(text);
@@ -495,7 +507,7 @@ export async function sendTelegramGameSettled({
   const text = tie
     ? `🤝 <b>Game #${escapeHtml(gameId)}</b> settled\nResult: <b>Tie</b>`
     : `🏆 <b>Game #${escapeHtml(gameId)}</b> settled\nWinner: <code>${escapeHtml(
-        shortWallet(winner)
+        await resolveWallet(winner)
       )}</code>`;
 
   return sendTelegramGroupMessage(text);
@@ -507,7 +519,7 @@ export async function sendTelegramGameCancelled({
 }) {
   const text =
     `❌ <b>Game #${escapeHtml(gameId)}</b> cancelled\n` +
-    `By: <code>${escapeHtml(shortWallet(cancelledBy))}</code>`;
+    `By: <code>${escapeHtml(await resolveWallet(cancelledBy))}</code>`;
 
   return sendTelegramGroupMessage(text);
 }
@@ -556,7 +568,10 @@ function formatWeekRangeFromKey(weekKey) {
   return `${fmt.format(start)} - ${fmt.format(end)}`;
 }
 
-function buildWeeklyLeaderboardText(weekKey, top3 = []) {
+// `names` is the { [lowercaseAddress]: displayName } map the caller resolved up front via
+// resolveWallet.resolveMany — this stays a plain sync function so it can still just be called
+// with the entries alone (falls back to shortWallet per-row) if a caller ever doesn't have one.
+function buildWeeklyLeaderboardText(weekKey, top3 = [], names = {}) {
   const weekLabel = formatWeekRangeFromKey(weekKey);
 
   let text =
@@ -573,8 +588,9 @@ function buildWeeklyLeaderboardText(weekKey, top3 = []) {
   const medals = ["🥇", "🥈", "🥉"];
 
   const rows = top3.map((entry, i) => {
+    const displayName = names[entry.address?.toLowerCase()] || shortWallet(entry.address);
     return (
-      `${medals[i] || "🏅"} <code>${escapeHtml(shortWallet(entry.address))}</code>\n` +
+      `${medals[i] || "🏅"} <code>${escapeHtml(displayName)}</code>\n` +
       `Played: <b>${escapeHtml(entry.played)}</b> • ` +
       `Wins: <b>${escapeHtml(entry.wins)}</b> • ` +
       `Win Rate: <b>${escapeHtml(entry.winRate)}%</b>`
@@ -606,6 +622,7 @@ export async function sendTelegramFinalWeeklyLeaderboard() {
   }
 
   const medals = ["🥇", "🥈", "🥉"];
+  const names = await resolveWallet.resolveMany(top3.map((e) => e.address));
 
 const leaderboardRewards = {
   1: { attack: 1, defense: 1, vitality: 1, agility: 1 },
@@ -616,9 +633,10 @@ const leaderboardRewards = {
 top3.forEach((entry, i) => {
   const rank = i + 1;
   const reward = leaderboardRewards[rank];
+  const displayName = names[entry.address?.toLowerCase()] || shortWallet(entry.address);
 
   text +=
-    `${medals[i] || "🏅"} <code>${escapeHtml(shortWallet(entry.address))}</code>\n` +
+    `${medals[i] || "🏅"} <code>${escapeHtml(displayName)}</code>\n` +
     `Played: <b>${escapeHtml(entry.played)}</b>\n` +
     `Wins: <b>${escapeHtml(entry.wins)}</b>\n` +
     `Win Rate: <b>${escapeHtml(entry.winRate)}%</b>\n`;
@@ -785,8 +803,9 @@ export async function sendTelegramWeeklyLeaderboard() {
   const { weekKey } = await rebuildWeeklyLeaderboardForDate(new Date());
   const sorted = await getWeeklyLeaderboardsSorted();
   const top3 = sorted[weekKey] || [];
+  const names = await resolveWallet.resolveMany(top3.map((e) => e.address));
 
-  const text = buildWeeklyLeaderboardText(weekKey, top3);
+  const text = buildWeeklyLeaderboardText(weekKey, top3, names);
   return sendTelegramGroupMessage(text);
 }
 
@@ -804,12 +823,14 @@ export async function sendTelegramAllTimeLeaderboard() {
   }
 
   const medals = ["🥇", "🥈", "🥉"];
+  const names = await resolveWallet.resolveMany(top10.map((e) => e.address));
 
   top10.forEach((entry, i) => {
     const rank = i + 1;
+    const displayName = names[entry.address?.toLowerCase()] || shortWallet(entry.address);
 
     text +=
-      `${medals[i] || `#${rank}`} <code>${escapeHtml(shortWallet(entry.address))}</code>\n` +
+      `${medals[i] || `#${rank}`} <code>${escapeHtml(displayName)}</code>\n` +
       `Played: <b>${escapeHtml(entry.played)}</b> | ` +
       `Wins: <b>${escapeHtml(entry.wins)}</b> | ` +
       `Win Rate: <b>${escapeHtml(entry.winRate)}%</b>\n\n`;
@@ -825,12 +846,13 @@ export async function sendTelegramRevealDeadlineSoon({
   deadlineAt,
 }) {
   const deadlineLabel = new Date(deadlineAt).toUTCString();
+  const [p1Name, p2Name] = await Promise.all([resolveWallet(player1), resolveWallet(player2)]);
 
   const text =
     `⏳ <b>Reveal deadline approaching</b>\n` +
     `Game: <b>#${escapeHtml(gameId)}</b>\n` +
-    `P1: <code>${escapeHtml(shortWallet(player1))}</code>\n` +
-    `P2: <code>${escapeHtml(shortWallet(player2))}</code>\n` +
+    `P1: <code>${escapeHtml(p1Name)}</code>\n` +
+    `P2: <code>${escapeHtml(p2Name)}</code>\n` +
     `Deadline: <b>${escapeHtml(deadlineLabel)}</b>\n\n` +
     `Only 1 day remains to reveal.`;
 
@@ -844,12 +866,13 @@ export async function sendTelegramRevealDeadlinePassed({
   deadlineAt,
 }) {
   const deadlineLabel = new Date(deadlineAt).toUTCString();
+  const [p1Name, p2Name] = await Promise.all([resolveWallet(player1), resolveWallet(player2)]);
 
   const text =
     `⏱ <b>Reveal deadline expired</b>\n` +
     `Game: <b>#${escapeHtml(gameId)}</b>\n` +
-    `P1: <code>${escapeHtml(shortWallet(player1))}</code>\n` +
-    `P2: <code>${escapeHtml(shortWallet(player2))}</code>\n` +
+    `P1: <code>${escapeHtml(p1Name)}</code>\n` +
+    `P2: <code>${escapeHtml(p2Name)}</code>\n` +
     `Deadline: <b>${escapeHtml(deadlineLabel)}</b>\n\n` +
     `This game can now be settled.`;
 
