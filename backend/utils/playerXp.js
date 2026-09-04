@@ -9,10 +9,14 @@ const DATA_DIR = BASE_DATA_DIR;
 const XP_FILE = path.join(DATA_DIR, "playerXp.json");
 const XP_ACTIONS_FILE = path.join(DATA_DIR, "xpActions.json");
 
-const CORE_REWARD_LEVELS = [1, 2, 3, 4, 5];
-const CORE_REWARD_AMOUNT = "10";
-const ETN_REWARD_LEVEL = 1;
-const ETN_REWARD_AMOUNT = "1";
+// Exported (in addition to being used locally below) so recovery/backfill
+// scripts — e.g. scripts/reconstructPlayerXp.js, scripts/backfillCoreEtnRewards.js —
+// can import the real reward schedule instead of hardcoding a copy that can
+// drift out of sync with this file.
+export const CORE_REWARD_LEVELS = [1, 2, 3, 4, 5];
+export const CORE_REWARD_AMOUNT = "10";
+export const ETN_REWARD_LEVEL = 1;
+export const ETN_REWARD_AMOUNT = "1";
 
 const ERC20ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
@@ -134,7 +138,7 @@ function crossedSpecificLevel(oldLevel, newLevel, targetLevel) {
   return oldLevel < targetLevel && newLevel >= targetLevel;
 }
 
-async function sendCoreReward(toWallet, level) {
+export async function sendCoreReward(toWallet, level) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
   const coreToken = new ethers.Contract(CORE_TOKEN_ADDRESS, ERC20ABI, adminWallet);
@@ -151,7 +155,7 @@ async function sendCoreReward(toWallet, level) {
   };
 }
 
-async function sendEtnReward(toWallet) {
+export async function sendEtnReward(toWallet) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
 
@@ -171,9 +175,9 @@ async function sendEtnReward(toWallet) {
 }
 
 // ---------- EVG REWARDS ------------- //
-const NFT_REWARD_LEVELS = [6, 7, 8, 10];
+export const NFT_REWARD_LEVELS = [6, 7, 8, 10];
 
-const NFT_TOKEN_RANGES = {
+export const NFT_TOKEN_RANGES = {
   6: { start: 1, end: 250 },
   7: { start: 251, end: 500 },
   8: { start: 501, end: 750 },
@@ -240,6 +244,67 @@ export async function backfillEvgRewardsForExistingPlayers() {
           `Failed to backfill EVG reward for ${walletLc} level ${lvl}:`,
           err.message || err
         );
+      }
+    }
+  }
+
+  writePlayerXp(all);
+
+  return results;
+}
+
+// ------- BACKFILL: CORE + ETN (mirrors backfillEvgRewardsForExistingPlayers) ---------- //
+// Same shape as the EVG backfill above: for every player already on record,
+// send whatever CORE_REWARD_LEVELS / the ETN level-1 reward their current
+// `level` qualifies them for but rewardedLevels / etnLevel1Rewarded show as
+// not yet paid, persisting after each individual send so a mid-run failure
+// can't lose track of what already went out.
+export async function backfillCoreEtnRewardsForExistingPlayers() {
+  const all = readPlayerXp();
+  const results = [];
+
+  for (const [walletLc, player] of Object.entries(all)) {
+    const playerLevel = Number(player.level || 0);
+
+    if (!Array.isArray(player.rewardedLevels)) {
+      player.rewardedLevels = [];
+    }
+
+    const missingCoreLevels = CORE_REWARD_LEVELS.filter((lvl) => {
+      return playerLevel >= lvl && !player.rewardedLevels.includes(lvl);
+    });
+
+    for (const lvl of missingCoreLevels) {
+      try {
+        const reward = await sendCoreReward(walletLc, lvl);
+
+        player.rewardedLevels.push(lvl);
+        player.updatedAt = new Date().toISOString();
+        writePlayerXp(all);
+
+        results.push({ wallet: walletLc, token: "CORE", level: lvl, success: true, txHash: reward.txHash });
+        console.log(`Backfilled CORE reward: level ${lvl}, wallet ${walletLc}, tx ${reward.txHash}`);
+      } catch (err) {
+        results.push({ wallet: walletLc, token: "CORE", level: lvl, success: false, error: err.message || String(err) });
+        console.error(`Failed to backfill CORE reward for ${walletLc} level ${lvl}:`, err.message || err);
+      }
+    }
+
+    const needsEtn = playerLevel >= ETN_REWARD_LEVEL && !player.etnLevel1Rewarded;
+
+    if (needsEtn) {
+      try {
+        const reward = await sendEtnReward(walletLc);
+
+        player.etnLevel1Rewarded = true;
+        player.updatedAt = new Date().toISOString();
+        writePlayerXp(all);
+
+        results.push({ wallet: walletLc, token: "ETN", level: ETN_REWARD_LEVEL, success: true, txHash: reward.txHash });
+        console.log(`Backfilled ETN reward: level 1, wallet ${walletLc}, tx ${reward.txHash}`);
+      } catch (err) {
+        results.push({ wallet: walletLc, token: "ETN", level: ETN_REWARD_LEVEL, success: false, error: err.message || String(err) });
+        console.error(`Failed to backfill ETN reward for ${walletLc}:`, err.message || err);
       }
     }
   }
