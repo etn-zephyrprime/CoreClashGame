@@ -64,6 +64,20 @@ function getMissingTokenIds(existingMap, collection, maxSupply) {
   return missing;
 }
 
+// The actual metadata JSON files on IPFS start with a UTF-8 BOM (confirmed by fetching one
+// directly: bytes EF BB BF before the opening `{`) -- JSON.parse doesn't strip that on its own,
+// so every fetch was throwing an "Unexpected token" parse error (on the invisible BOM
+// character) before this file ever got to write anything to disk. Strip it here once rather
+// than at every JSON.parse call site. Built via fromCharCode rather than a literal character in
+// this source file on purpose -- an invisible character sitting directly in the file is exactly
+// the kind of thing that silently breaks the next time someone's editor/tool re-saves it in a
+// different encoding.
+const BOM = String.fromCharCode(0xfeff);
+function parseJsonBuffer(buf) {
+  const text = buf.toString("utf8");
+  return JSON.parse(text.startsWith(BOM) ? text.slice(BOM.length) : text);
+}
+
 function flattenExistingRows(existingMap, rows) {
   for (const [collection, tokens] of Object.entries(existingMap)) {
     for (const [tokenId, data] of Object.entries(tokens)) {
@@ -134,17 +148,7 @@ async function generateVKIN(rows, provider, existingMap) {
 
   for (const tokenId of missingIds) {
     let jsonFile = null;
-
-    const COLLECTION_IMAGE_FORMATS = {
-  EVG: "webp",
-  VQLE: "png",
-  SCIONS: "png",
-  VKIN: "png",
-};
-
-const format = COLLECTION_IMAGE_FORMATS[collection] || "png";
-
-let imageFile = defaultImageFile("VKIN", tokenId);
+    let imageFile = defaultImageFile("VKIN", tokenId);
 
     try {
       const tokenURI = await contract.tokenURI(tokenId);
@@ -158,12 +162,12 @@ let imageFile = defaultImageFile("VKIN", tokenId);
 
       let metadata;
       if (fs.existsSync(jsonPath)) {
-        metadata = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+        metadata = parseJsonBuffer(fs.readFileSync(jsonPath));
       } else {
         const rawJson = await fetchWithRetries(tokenURI, 3, 5000, "arraybuffer");
         if (!rawJson) continue;
 
-        metadata = JSON.parse(rawJson.toString());
+        metadata = parseJsonBuffer(rawJson);
         fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
         queueR2Upload(jsonPath);
         console.log(`💾 Saved VKIN JSON ${jsonFile}`);
@@ -208,7 +212,15 @@ async function generateVQLE(rows, existingMap) {
 
   console.log(`VQLE missing tokens: ${missingIds.length}`);
 
-  const baseCid = VQLE_IPFS_BASE.replace(/https?:\/\/[^/]+\//, "");
+  // Was VQLE_IPFS_BASE.replace(/https?:\/\/[^/]+\//, "") -- that only strips the protocol+host,
+  // leaving the "ipfs/" path segment in baseCid (VQLE_IPFS_BASE is
+  // ".../gateway.pinata.cloud/ipfs/<CID>/"). fetchWithRetries's gateways already end in "/ipfs",
+  // so every request ended up hitting ".../ipfs/ipfs/<CID>/..." and 404/403/500ing on every
+  // gateway. Same fix generateEVG already uses below -- strip the "/ipfs/" segment too.
+  const baseCid = VQLE_IPFS_BASE
+    .replace(/^ipfs:\/\//, "")
+    .replace(/^https?:\/\/[^/]+\/ipfs\//, "")
+    .replace(/\/?$/, "/");
 
   for (const tokenId of missingIds) {
     const jsonFile = `${tokenId}.json`;
@@ -216,13 +228,13 @@ async function generateVQLE(rows, existingMap) {
     let metadata;
 
     if (fs.existsSync(jsonPath)) {
-      metadata = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+      metadata = parseJsonBuffer(fs.readFileSync(jsonPath));
     } else {
       const jsonUri = `ipfs://${baseCid}${jsonFile}`;
       const rawJson = await fetchWithRetries(jsonUri, 3, 5000, "arraybuffer");
       if (!rawJson) continue;
 
-      metadata = JSON.parse(rawJson.toString());
+      metadata = parseJsonBuffer(rawJson);
       fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
       queueR2Upload(jsonPath);
       console.log(`💾 Saved VQLE JSON ${jsonFile}`);
@@ -285,12 +297,12 @@ let imageFile = defaultImageFile("SCIONS", tokenId);
 
       let metadata;
       if (fs.existsSync(jsonPath)) {
-        metadata = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+        metadata = parseJsonBuffer(fs.readFileSync(jsonPath));
       } else {
         const rawJson = await fetchWithRetries(tokenURI, 3, 5000, "arraybuffer");
         if (!rawJson) continue;
 
-        metadata = JSON.parse(rawJson.toString());
+        metadata = parseJsonBuffer(rawJson);
         fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
         queueR2Upload(jsonPath);
         console.log(`💾 Saved SCIONS JSON ${jsonFile}`);
@@ -346,13 +358,13 @@ const baseCid = EVG_IPFS_BASE
     let metadata;
 
     if (fs.existsSync(jsonPath)) {
-      metadata = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+      metadata = parseJsonBuffer(fs.readFileSync(jsonPath));
     } else {
       const jsonUri = `ipfs://${baseCid}${jsonFile}`;
       const rawJson = await fetchWithRetries(jsonUri, 3, 5000, "arraybuffer");
       if (!rawJson) continue;
 
-      metadata = JSON.parse(rawJson.toString());
+      metadata = parseJsonBuffer(rawJson);
       fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2));
       queueR2Upload(jsonPath);
       console.log(`💾 Saved EVG JSON ${jsonFile}`);
