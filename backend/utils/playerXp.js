@@ -4,6 +4,34 @@ import { ethers } from "ethers";
 import { RPC_URL, BACKEND_PRIVATE_KEY, CORE_TOKEN_ADDRESS, EVG_CONTRACT_ADDRESS } from "../config.js";
 import { BASE_DATA_DIR } from "./dataDir.js";
 import { queueR2Upload } from "./r2Sync.js";
+import { withWalletLock } from "./walletLock.js";
+
+// Small bounded retry for on-chain reward sends. A transient RPC hiccup,
+// nonce collision, or gas-estimation blip shouldn't permanently drop a
+// reward the player legitimately earned -- previously any error here was
+// caught, logged once, and never retried (CoreClash issue #689), which is
+// why most historical level-ups never actually sent their reward.
+async function withRetry(fn, { attempts = 3, baseDelayMs = 1500 } = {}) {
+  let lastErr;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+
+      if (attempt < attempts) {
+        const delay = baseDelayMs * 2 ** (attempt - 1);
+        console.warn(
+          `Reward send attempt ${attempt}/${attempts} failed (${err.message || err}), retrying in ${delay}ms`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastErr;
+}
 
 const DATA_DIR = BASE_DATA_DIR;
 const XP_FILE = path.join(DATA_DIR, "playerXp.json");
@@ -139,39 +167,43 @@ function crossedSpecificLevel(oldLevel, newLevel, targetLevel) {
 }
 
 export async function sendCoreReward(toWallet, level) {
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
-  const coreToken = new ethers.Contract(CORE_TOKEN_ADDRESS, ERC20ABI, adminWallet);
+  return withRetry(async () => {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
+    const coreToken = new ethers.Contract(CORE_TOKEN_ADDRESS, ERC20ABI, adminWallet);
 
-  const amountWei = ethers.parseUnits(CORE_REWARD_AMOUNT, 18);
+    const amountWei = ethers.parseUnits(CORE_REWARD_AMOUNT, 18);
 
-  const tx = await coreToken.transfer(toWallet, amountWei);
-  await tx.wait(1);
+    const tx = await coreToken.transfer(toWallet, amountWei);
+    await tx.wait(1);
 
-  return {
-    level,
-    amount: CORE_REWARD_AMOUNT,
-    txHash: tx.hash,
-  };
+    return {
+      level,
+      amount: CORE_REWARD_AMOUNT,
+      txHash: tx.hash,
+    };
+  });
 }
 
 export async function sendEtnReward(toWallet) {
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
+  return withRetry(async () => {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
 
-  const tx = await adminWallet.sendTransaction({
-    to: toWallet,
-    value: ethers.parseEther(ETN_REWARD_AMOUNT),
+    const tx = await adminWallet.sendTransaction({
+      to: toWallet,
+      value: ethers.parseEther(ETN_REWARD_AMOUNT),
+    });
+
+    await tx.wait(1);
+
+    return {
+      token: "ETN",
+      level: ETN_REWARD_LEVEL,
+      amount: ETN_REWARD_AMOUNT,
+      txHash: tx.hash,
+    };
   });
-
-  await tx.wait(1);
-
-  return {
-    token: "ETN",
-    level: ETN_REWARD_LEVEL,
-    amount: ETN_REWARD_AMOUNT,
-    txHash: tx.hash,
-  };
 }
 
 // ---------- EVG REWARDS ------------- //
@@ -315,11 +347,21 @@ export async function backfillCoreEtnRewardsForExistingPlayers() {
 }
 
 ///* ---------------- XP & Leveling Logic ---------------- */
+// Wrapped in withWalletLock so two near-simultaneous awards to the same
+// wallet (e.g. both players' REVEAL XP landing close together, or a SETTLE
+// award racing a login/click award) can't both read the same pre-award
+// rewardedLevels/evgRewardedLevels/etnLevel1Rewarded state and both send the
+// same level's reward before either persists it. See CoreClash issue #689 --
+// this is what caused the duplicate EVG NFT + ETN payment found during the
+// #688 data recovery. Different wallets still run fully concurrently; only
+// same-wallet calls are serialized.
 export async function adjustXp(wallet, amount) {
   const walletLc = String(wallet).toLowerCase();
-  const all = readPlayerXp();
 
-  if (!all[walletLc]) {
+  return withWalletLock(walletLc, async () => {
+    const all = readPlayerXp();
+
+    if (!all[walletLc]) {
     const levelData = getLevelData(0);
 all[walletLc] = {
   wallet: walletLc,
@@ -395,7 +437,7 @@ for (const lvl of crossedNftRewardLevels) {
     );
   } catch (err) {
     console.error(
-      `Failed to send NFT reward for wallet ${walletLc} at level ${lvl}:`,
+      `REWARD_SEND_FAILED_PERMANENTLY token=NFT wallet=${walletLc} level=${lvl} — all retries exhausted:`,
       err.message || err
     );
   }
@@ -418,7 +460,7 @@ for (const lvl of crossedNftRewardLevels) {
       );
     } catch (err) {
       console.error(
-        `Failed to send CORE reward for wallet ${walletLc} at level ${lvl}:`,
+        `REWARD_SEND_FAILED_PERMANENTLY token=CORE wallet=${walletLc} level=${lvl} — all retries exhausted:`,
         err.message || err
       );
     }
@@ -438,16 +480,17 @@ for (const lvl of crossedNftRewardLevels) {
       );
     } catch (err) {
       console.error(
-        `Failed to send ETN reward for wallet ${walletLc} at level 1:`,
+        `REWARD_SEND_FAILED_PERMANENTLY token=ETN wallet=${walletLc} level=1 — all retries exhausted:`,
         err.message || err
       );
     }
   }
-  
-  return {
-    ...all[walletLc],
-    rewardResults,
-  };
+
+    return {
+      ...all[walletLc],
+      rewardResults,
+    };
+  });
 }
 
 export async function awardXp(wallet, amount) {
@@ -621,35 +664,46 @@ async function findAvailableNftTokenId(level, adminAddress, nftContract) {
   return null;
 }
 
+// NOTE on retry safety: like the CORE/ETN sends, this retries the whole
+// send-and-confirm sequence. That's a good trade-off for the dominant
+// failure mode (RPC/gas/nonce errors before the transaction is even
+// broadcast) but isn't perfectly exactly-once -- if tx.wait(1) itself times
+// out or errors *after* the transfer actually landed on-chain, a retry here
+// re-picks an available token and could send a second, different NFT for
+// the same level. A stronger version would check on-chain whether the
+// wallet already holds a token in this level's range before resending;
+// left as a follow-up rather than blocking this fix.
 async function sendNftReward(toWallet, level) {
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
-  const evgContract = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVGABI, adminWallet);
+  return withRetry(async () => {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const adminWallet = new ethers.Wallet(BACKEND_PRIVATE_KEY, provider);
+    const evgContract = new ethers.Contract(EVG_CONTRACT_ADDRESS, EVGABI, adminWallet);
 
-  const tokenId = await findAvailableNftTokenId(
-    level,
-    adminWallet.address,
-    evgContract
-  );
+    const tokenId = await findAvailableNftTokenId(
+      level,
+      adminWallet.address,
+      evgContract
+    );
 
-  if (!tokenId) {
-    throw new Error(`No available NFT left for level ${level}`);
-  }
+    if (!tokenId) {
+      throw new Error(`No available NFT left for level ${level}`);
+    }
 
-  const tx = await evgContract.safeTransferFrom(
-    adminWallet.address,
-    toWallet,
-    tokenId
-  );
+    const tx = await evgContract.safeTransferFrom(
+      adminWallet.address,
+      toWallet,
+      tokenId
+    );
 
-  await tx.wait(1);
+    await tx.wait(1);
 
-  return {
-    token: "XP_NFT",
-    level,
-    tokenId,
-    txHash: tx.hash,
-  };
+    return {
+      token: "XP_NFT",
+      level,
+      tokenId,
+      txHash: tx.hash,
+    };
+  });
 }
 
 console.log("[XP] DATA_DIR:", DATA_DIR);
