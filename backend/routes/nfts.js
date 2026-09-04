@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
 import { readOwnerCache, writeOwnerCache } from "../utils/ownerCache.js";
-import { METADATA_JSON_DIR, FRONTEND_MAPPING_FILE } from "../paths.js";
+import { METADATA_JSON_DIR, MAPPING_FILE, loadMapping } from "../paths.js";
 import { RPC_URL, VKIN_CONTRACT_ADDRESS, VQLE_CONTRACT_ADDRESS, SCIONS_CONTRACT_ADDRESS, EVG_CONTRACT_ADDRESS } from "../config.js";
 import { fetchOwnedTokenIds } from "../utils/nftUtils.js";
 import VKIN_ABI from "../../src/abis/VKINABI.json" with { type: "json" };
@@ -31,16 +31,24 @@ async function retryRpc(fn, retries = RETRY_COUNT, delayMs = RETRY_DELAY_MS) {
   }
 }
 
+// Was reading FRONTEND_MAPPING_FILE (mapping.json) — nothing in this codebase ever writes that
+// file, so every lookup here silently returned {} and every VKIN/SCIONS token (their JSON/image
+// filenames come from the real on-chain tokenURI, not the tokenId -- see generateMapping.js,
+// left exactly as-is per design, random-mint obfuscation) fell through enrichToken's fallback to
+// a filename that never matched what's actually on disk, showing "Unknown" background for all of
+// them. mapping.csv (MAPPING_FILE) is the file generateMapping.js actually keeps up to date and
+// R2-backed; loadMapping() (paths.js) already parses it into this exact same
+// { [collection]: { [tokenId]: { token_uri, image_file } } } shape, so read from there instead.
 function readMapping() {
   try {
-    if (!fs.existsSync(FRONTEND_MAPPING_FILE)) {
-      console.warn(`Mapping file missing: ${FRONTEND_MAPPING_FILE}`);
+    if (!fs.existsSync(MAPPING_FILE)) {
+      console.warn(`Mapping file missing: ${MAPPING_FILE}`);
       return {};
     }
 
-    return JSON.parse(fs.readFileSync(FRONTEND_MAPPING_FILE, "utf8"));
+    return loadMapping();
   } catch (err) {
-    console.error("Failed to read frontend mapping:", err.message);
+    console.error("Failed to read mapping:", err.message);
     return {};
   }
 }
@@ -286,15 +294,14 @@ for (const tokenId of walletCache.EVG || []) {
 res.json(result);
 });
 
+// The frontend (src/App.js) polls this directly for its own image-URL cache, same data
+// enrichToken() above uses server-side -- both now read from mapping.csv via loadMapping().
 router.get("/mapping.json", (req, res) => {
   try {
-    if (!fs.existsSync(FRONTEND_MAPPING_FILE)) {
-      return res.status(404).json({
-        error: "mapping.json not found",
-      });
-    }
+    const mapping = readMapping();
 
-    res.sendFile(FRONTEND_MAPPING_FILE);
+    res.setHeader("Cache-Control", "no-store"); // same as routes/mapping.js's equivalent endpoint
+    res.json(mapping);
   } catch (err) {
     console.error("Failed serving mapping.json:", err);
 
