@@ -37,7 +37,7 @@ import { renderTokenImages } from "./renderTokenImages.jsx";
 
 import {
   CoreClashLogo, AppBackground, PlanetZephyrosAE, HowToPlay, GameInfo, ElectroSwap,
-  VerdantKinBanner, ElectroneumLogo, AetherScionsBanner, VerdantQueenBanner, EtnClubLogo, EvgBanner, 
+  VerdantKinBanner, ElectroneumLogo, AetherScionsBanner, VerdantQueenBanner, EvgBanner,
   TelegramLogo, XLogo, PlanetZephyrosLogo
 } from "./appMedia/media.js";
 
@@ -2513,7 +2513,8 @@ const AdPlaceholder = () => (
 </a>
     </div>
 
-    {/* Main Content */}
+    {/* Main Content — generic placeholder. No active sponsor; contact via the
+        "Advertise Here" link above to fill this slot. */}
     <div
       style={{
         display: "flex",
@@ -2524,19 +2525,6 @@ const AdPlaceholder = () => (
         marginTop: 28,
       }}
     >
-      <img
-        src={EtnClubLogo}
-        alt="ETN CLUB"
-        style={{
-          display: "block",
-          width: isMobile ? 52 : 64,
-          height: "auto",
-          filter: "drop-shadow(0 0 8px #5ebdde)",
-          opacity: 0.95,
-          marginBottom: 10,
-        }}
-      />
-
       <div
         style={{
           fontSize: isMobile ? 16 : 18,
@@ -2546,7 +2534,7 @@ const AdPlaceholder = () => (
           marginBottom: 6,
         }}
       >
-        ETN Club Token
+        This Ad Space is Available
       </div>
 
       <div
@@ -2559,32 +2547,13 @@ const AdPlaceholder = () => (
           textAlign: "center",
         }}
       >
-        Deflationary. Community-Owned. ETN Club.
+        Reach Core Clash players — reserve this spot for your project.
       </div>
 
       <a
-        href="https://planetetn.org/profile/4-etn-club"
+        href="https://t.me/ETN_Villain"
         target="_blank"
         rel="noopener noreferrer"
-        style={{
-          display: "inline-flex",
-          justifyContent: "center",
-          fontSize: 12,
-          color: "#5ebdde",
-          textDecoration: "none",
-          marginBottom: 10,
-          textAlign: "center",
-        }}
-      >
-        Official Website
-      </a>
-
-      <a
-        href="https://t.me/ETNclubs"
-        onClick={(e) => {
-          e.preventDefault();
-          handleSponsoredAdClick("sponsoredad1", "https://t.me/ETNclubs");
-        }}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -2600,7 +2569,7 @@ const AdPlaceholder = () => (
         }}
       >
         <FaTelegramPlane size={14} />
-        Join the CLUB
+        Advertise Here
       </a>
     </div>
   </div>
