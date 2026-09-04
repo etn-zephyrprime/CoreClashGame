@@ -28,6 +28,7 @@ import { ethers } from "ethers";
 import { RPC_URL, GAME_ADDRESS } from "../config.js";
 import GameABI from "../../src/abis/GameABI.json" with { type: "json" };
 import { readGames, writeGames } from "../store/gamesStore.js";
+import { flushR2Uploads } from "../utils/r2Sync.js";
 
 const WRITE = process.argv.includes("--write");
 const ZERO = ethers.ZeroAddress.toLowerCase();
@@ -65,7 +66,13 @@ async function main() {
   }
 
   writeGames(games);
-  console.log("games.json updated. Re-run/trigger your weekly leaderboard rebuild to refresh stored standings —");
+
+  // See reconstructPlayerXp.js's matching comment -- a fire-and-forget R2 upload from a
+  // short-lived CLI script isn't durable on Render's free tier without waiting for it here.
+  console.log("Flushing to R2...");
+  await flushR2Uploads();
+
+  console.log("games.json updated and R2 upload confirmed. Re-run/trigger your weekly leaderboard rebuild to refresh stored standings —");
   console.log("the frontend leaderboard reads game.winner directly from GET /games so it picks this up immediately.");
 }
 

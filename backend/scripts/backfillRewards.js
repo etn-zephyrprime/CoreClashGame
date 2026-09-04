@@ -26,6 +26,7 @@ import {
   ETN_REWARD_LEVEL,
   NFT_REWARD_LEVELS,
 } from "../utils/playerXp.js";
+import { flushR2Uploads } from "../utils/r2Sync.js";
 
 const WRITE = process.argv.includes("--write");
 
@@ -85,6 +86,16 @@ async function main() {
     console.log("Failed NFT sends (re-run this script to retry):");
     nftFailed.forEach((r) => console.log(`  ${r.wallet} level ${r.level}: ${r.error}`));
   }
+
+  // Both backfill functions above call writePlayerXp() repeatedly (once per successful send) --
+  // each of those queues an R2 upload but doesn't wait for it. Drain the whole queue here before
+  // the process exits, or the rewardedLevels/evgRewardedLevels/etnLevel1Rewarded bookkeeping for
+  // everything just sent may never actually reach R2, and the next cold start on Render's free
+  // tier would revert it -- which would make the next run of this script think those rewards
+  // were never sent and pay them again.
+  console.log("\nFlushing to R2...");
+  await flushR2Uploads();
+  console.log("R2 upload confirmed.");
 }
 
 main().catch((err) => {

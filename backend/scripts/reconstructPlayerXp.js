@@ -46,6 +46,7 @@
 // ---------------------------------------------------------------------------
 
 import { readGames } from "../store/gamesStore.js";
+import { flushR2Uploads } from "../utils/r2Sync.js";
 import {
   XP_LEVELS,
   getLevelData,
@@ -296,7 +297,15 @@ async function main() {
   }
 
   writePlayerXp(merged);
-  console.log(`\nWrote ${rows.length} wallet(s) to playerXp.json`);
+
+  // queueR2Upload() is fire-and-forget -- a short-lived CLI process like this one exiting before
+  // the queued PUT actually lands means the write only ever hit local disk. On Render's free
+  // tier that's not durable: it spins down on idle and cold-starts fresh from R2 on the next
+  // request, so anything never actually confirmed in the bucket quietly reverts. Wait for the
+  // queue to drain before letting the process exit.
+  console.log("\nFlushing to R2...");
+  await flushR2Uploads();
+  console.log(`Wrote ${rows.length} wallet(s) to playerXp.json and confirmed the R2 upload.`);
 }
 
 main().catch((err) => {
