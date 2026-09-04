@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
 import fs from "fs";
 import path from "path";
-import axios from "axios";
 import { fileURLToPath } from "url";
 
 import {
@@ -88,6 +87,13 @@ function flattenExistingRows(existingMap, rows) {
   }
 }
 
+// Was axios.get(). Switched to native fetch() (undici) after finding these gateways return a
+// blanket 403 to axios's requests specifically -- reproduced side by side against the same URL
+// with the same headers, including a spoofed browser User-Agent: axios 403s, both curl and native
+// fetch() get a clean 200. That's consistent with the gateways' Cloudflare edge fingerprinting
+// the TLS handshake itself (axios's underlying http/https client has a different, recognizable
+// signature from a real browser's or curl's, regardless of what headers ride on top of it) --
+// not something a header change can fix, but switching HTTP clients does.
 async function fetchWithRetries(
   ipfsUri,
   retriesPerGateway = 3,
@@ -101,15 +107,30 @@ async function fetchWithRetries(
     console.log(`🌐 Trying: ${url}`);
 
     for (let attempt = 1; attempt <= retriesPerGateway; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
       try {
-        const res = await axios.get(url, { responseType, timeout: 30_000 });
-        return res.data;
+        const res = await fetch(url, { signal: controller.signal });
+
+        if (!res.ok) {
+          throw new Error(`Request failed with status code ${res.status}`);
+        }
+
+        const buf = Buffer.from(await res.arrayBuffer());
+        return responseType === "arraybuffer" ? buf : buf.toString("utf8");
       } catch (err) {
-        if (err.code === "ENOTFOUND") break;
+        // Native fetch wraps DNS failures as a TypeError with the real error on `.cause` (axios
+        // exposed `err.code` directly) -- cloudflare-ipfs.com no longer resolves at all, so skip
+        // straight to the next gateway instead of burning 3 retries on a dead hostname.
+        if (err.cause?.code === "ENOTFOUND") break;
+
         console.warn(
           `Attempt ${attempt}/${retriesPerGateway} failed for ${url}: ${err.message}`
         );
         if (attempt < retriesPerGateway) await sleep(retryDelayMs);
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
   }
