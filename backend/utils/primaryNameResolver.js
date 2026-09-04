@@ -20,6 +20,8 @@ export function shortAddress(address) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+const DEFAULT_EXPLORER_BASE_URL = "https://blockexplorer.electroneum.com";
+
 /**
  * Returns an async `resolveDisplayName(addr) -> string` bound to one ReverseRegistrar. Always
  * resolves to a displayable string — the wallet's primary name if it has one set, otherwise
@@ -28,8 +30,19 @@ export function shortAddress(address) {
  * `defaultResolver()` is a single global value (not address-dependent) that effectively never
  * changes, so it's fetched once and cached for the life of the process. A failed fetch clears the
  * cache so the next call retries rather than failing forever.
+ *
+ * `explorerBaseUrl` (optional, defaults to the Electroneum Blockscout instance) backs a second
+ * lookup that only runs when the reverse-record check above comes back empty. Owning a name and
+ * setting it as your reverse/primary record are two separate, opt-in ENS steps — a wallet can
+ * genuinely own a name (confirmed on-chain: ENS Registry .owner() and the name's own forward
+ * resolver.addr() both point back to it) without ever having called ReverseRegistrar.setName(),
+ * in which case the check above finds nothing even though the wallet has a name a human would
+ * recognize. Blockscout's own indexer does that forward-ownership lookup already (exposed as
+ * `ens_domain_name` on GET /api/v2/addresses/:address) — reused here rather than re-implementing
+ * ETNSubdomainService's ownedNamesCache.js (a whole maintained event-scanning cache) just for
+ * this fallback.
  */
-export function createPrimaryNameResolver(provider, reverseRegistrarAddress) {
+export function createPrimaryNameResolver(provider, reverseRegistrarAddress, explorerBaseUrl = DEFAULT_EXPLORER_BASE_URL) {
   const reverseRegistrar = new ethers.Contract(reverseRegistrarAddress, REVERSE_REGISTRAR_ABI, provider);
   let resolverPromise = null;
 
@@ -46,17 +59,36 @@ export function createPrimaryNameResolver(provider, reverseRegistrarAddress) {
     return resolverPromise;
   }
 
+  async function reverseName(addr) {
+    const resolver = await getResolver();
+    if (!resolver) return null;
+    const node = await reverseRegistrar.node(addr);
+    const name = await resolver.name(node);
+    return name || null;
+  }
+
+  async function ownedNameFallback(addr) {
+    try {
+      const res = await fetch(`${explorerBaseUrl}/api/v2/addresses/${addr}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.ens_domain_name || null;
+    } catch (err) {
+      console.warn(`⚠️  Blockscout owned-name fallback failed for ${addr}:`, err.message);
+      return null;
+    }
+  }
+
   async function resolveDisplayName(addr) {
     try {
-      const resolver = await getResolver();
-      if (!resolver) return shortAddress(addr);
-      const node = await reverseRegistrar.node(addr);
-      const name = await resolver.name(node);
-      return name || shortAddress(addr);
+      const name = await reverseName(addr);
+      if (name) return name;
     } catch (err) {
       console.warn(`⚠️  Failed to resolve primary name for ${addr}:`, err.message);
-      return shortAddress(addr);
     }
+
+    const owned = await ownedNameFallback(addr);
+    return owned || shortAddress(addr);
   }
 
   // Resolves many addresses at once — the leaderboard/game-list use case this file adds on top
