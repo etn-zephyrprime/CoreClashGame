@@ -26,3 +26,14 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Runtime state (backend/utils/dataDir.js's BASE_DATA_DIR fallback, used whenever there's no
+# mounted persistent disk — i.e. always, on Render's free tier). Mirrored to/from Cloudflare R2
+# on every write/boot (see r2Sync.js) -- never meant to be source-controlled. Two files here
+# (playerXp.json, xpActions.json) were committed as empty `{}` placeholders and never removed:
+# every fresh deploy checked them out at this exact path before the app booted, and
+# restoreDataFromR2() only fills in files that are *missing* locally -- it never overwrites one
+# that already exists -- so those two placeholders silently blocked the real R2-backed data from
+# ever being restored on a fresh deploy, no matter how reliably it had been uploaded. Ignoring the
+# whole directory so this can't recur for any other runtime file either.
+/backend/data/
