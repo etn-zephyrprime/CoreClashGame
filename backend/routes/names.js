@@ -7,14 +7,15 @@
 // the life of the process, not once per request — see utils/primaryNameResolver.js.
 import express from "express";
 import { ethers } from "ethers";
-import { RPC_URL, REVERSE_REGISTRAR_ADDRESS } from "../config.js";
+import { RPC_URL, REVERSE_REGISTRAR_ADDRESS, EXPLORER_BASE_URL } from "../config.js";
 import { createPrimaryNameResolver } from "../utils/primaryNameResolver.js";
 
 const router = express.Router();
 
 const resolveWallet = createPrimaryNameResolver(
   new ethers.JsonRpcProvider(RPC_URL),
-  REVERSE_REGISTRAR_ADDRESS
+  REVERSE_REGISTRAR_ADDRESS,
+  EXPLORER_BASE_URL
 );
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;

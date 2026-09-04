@@ -119,7 +119,8 @@ function shortWallet(address) {
 // see primaryNameResolver.js's header comment for why that matters.
 const resolveWallet = createPrimaryNameResolver(
   new ethers.JsonRpcProvider(RPC_URL),
-  REVERSE_REGISTRAR_ADDRESS
+  REVERSE_REGISTRAR_ADDRESS,
+  EXPLORER_BASE_URL
 );
 
 function formatTokenAmount(amount, decimals = 18, maxFractionDigits = 4) {
