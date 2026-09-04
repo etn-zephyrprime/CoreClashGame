@@ -101,7 +101,11 @@ export default function EcosystemBlock({
   linkKey: "evg",
   alt: "Guardians of Erevos",
   imageSrc: EvgBanner,
-  objectFit: "cover",
+  // Was "cover" -- with this banner's wider box (416 vs the others' 320) and its source
+  // image's aspect ratio, "cover" scaled it up to fill the box and cropped the left/right
+  // edges to do it, cutting "GUAR" off "GUARDIANS OF EREVOS" on desktop. "contain" (same as
+  // the other three banners) scales to fit within the box instead, so the whole image shows.
+  objectFit: "contain",
   desktopMaxWidth: 416,
   desktopHeight: 78,
   imageScale: 1,
